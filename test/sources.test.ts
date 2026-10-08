@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { authorized } from "../src/auth.ts";
 import { CachedSource } from "../src/cache.ts";
 import { groupEvents, parseServiceAccount, signJwt } from "../src/calendar.ts";
-import { parseHomework } from "../src/homework.ts";
+import { countHomework } from "../src/homework.ts";
 import { openMeteoUrl, parseForecast } from "../src/weather.ts";
 
 const tp = (s: string) => Date.parse(`${s}+08:00`);
@@ -84,10 +84,29 @@ test("服務帳戶 JWT 用 RS256 簽、對得起來", () => {
   assert.throws(() => parseServiceAccount("{}"));
 });
 
-test("作業：解析 Due Now 的回應，格式不對就丟錯", () => {
-  assert.deepEqual(parseHomework({ dueToday: 2, dueIn3Days: 5 }), { today: 2, within3Days: 5 });
-  assert.throws(() => parseHomework({ dueToday: "2" }));
-  assert.throws(() => parseHomework(null));
+test("作業：只數沒過截止的；今天＝到明天 00:00，三天內＝今明後三個日曆天含今天", () => {
+  const now = tp("2026-10-08T21:00:00");
+  const a = (deadline: string, extra = {}) => ({ deadline: new Date(tp(deadline)).toISOString(), done: false, submitted: false, ...extra });
+  const json = {
+    assignments: [
+      a("2026-10-08T20:00:00"), // 已經過了，不算
+      a("2026-10-08T23:59:00"), // 今天
+      a("2026-10-09T00:00:00"), // 明天 00:00 剛好是今天的結尾，算今天
+      a("2026-10-09T08:00:00"), // 明天
+      a("2026-10-10T23:59:00"), // 後天
+      a("2026-10-11T00:00:00"), // 大後天 00:00，算三天內的最後一刻
+      a("2026-10-11T00:01:00"), // 超過
+      a("9999-12-31T00:00:00"), // Due Now 的「沒有截止日」
+      a("2026-10-08T22:00:00", { done: true }), // 保險：勾了完成的不算
+    ],
+  };
+  assert.deepEqual(countHomework(json, now), { today: 2, within3Days: 5 });
+  // 部署機器在 UTC：台北凌晨 1 點，「今天」還是台北的今天
+  const lateNight = tp("2026-10-09T01:00:00");
+  assert.deepEqual(countHomework({ assignments: [a("2026-10-09T23:00:00"), a("2026-10-10T07:00:00")] }, lateNight), { today: 1, within3Days: 2 });
+  assert.deepEqual(countHomework({ assignments: [] }, now), { today: 0, within3Days: 0 });
+  assert.throws(() => countHomework({ error: { code: "unauthorized" } }, now));
+  assert.throws(() => countHomework(null, now));
 });
 
 test("金鑰檢查", () => {

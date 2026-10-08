@@ -14,10 +14,9 @@ export type Config = {
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const homework =
-    env.DUE_NOW_GLANCE_KEY
-      ? { baseUrl: env.DUE_NOW_URL || "https://now.tschool.cc", key: env.DUE_NOW_GLANCE_KEY }
-      : null;
+  const homework = env.DUE_NOW_TOKEN
+    ? { baseUrl: env.DUE_NOW_URL || "https://now.tschool.cc", token: env.DUE_NOW_TOKEN }
+    : null;
 
   let calendar: CalendarConfig | null = null;
   const calendarIds = (env.GOOGLE_CALENDAR_IDS ?? "")

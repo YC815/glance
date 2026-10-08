@@ -15,7 +15,7 @@ Node 22.18 以上直接跑 TypeScript（型別剝除），**沒有任何執行�
 |---|---|---|
 | 天氣 | Open-Meteo，ECMWF 模式（預設 `ecmwf_ifs025`），逐小時雨量、氣溫、濕度、風速、日射量 | 15 分鐘 |
 | UTCI | 自己算：`src/utci.ts`（照抄 pythermalcomfort 的多項式），平均輻射溫度用日射量估（`src/mrt.ts`，ASHRAE SolarCal） | 跟天氣一起 |
-| 作業 | Due Now 的唯讀 API（Bearer 金鑰，格式見 `src/homework.ts`） | 5 分鐘；點看板上的作業數字可立刻重抓 |
+| 作業 | Due Now 開發者 API：抓未完成作業清單，自己數「今天」「三天內」 | 5 分鐘；點看板上的作業數字可立刻重抓 |
 | 行事曆 | Google Calendar API，服務帳戶唯讀，今天＋明天 | 5 分鐘 |
 
 某個來源抓失敗時，繼續回上一筆成功的資料，並在 `sources` 裡附上錯誤與最後更新時間。
@@ -45,6 +45,7 @@ test/          node:test
 - **UTCI**：現在的值用前後兩個整點內插；第二頁取每天 05–20 點的最高值。風速低於 0.5 m/s 夾到 0.5（原模型會回 NaN）。
 - **平均輻射溫度**：MRT = 氣溫 + 太陽造成的 ΔMRT。散射、直射分開用 Open-Meteo 的值，人站在戶外、方位取平均、地面反射率 0.2。沒算長波輻射，晴朗夜晚會略高估。
 - **行事曆**：今天的全部列出，已經結束的透明度 40%；放不下時先拿掉今天已結束的，再從明天最後面砍、補「還有 N 個」。
+- **作業的兩個數字**：只算沒勾完成、平台也還沒繳交、截止時間還沒過的。「今天」= 截止在現在到明天 00:00；「三天內」= 今天、明天、後天三個日曆天，含今天。日界用台北時間。
 - **手動同步作業**：點任一個作業數字，兩個圓圈會蓋上半透明的轉圈動畫，伺服器跳過快取直接問 Due Now（`/api/glance?refresh=homework`，2 秒內連點只算一次）。在 Due Now 勾完成後點一下，數字就會更新。
 - **第二頁**：停在第二頁 2 分鐘沒動就自動滑回常駐頁。
 
@@ -68,7 +69,7 @@ npm run typecheck
 | `WEATHER_LAT` / `WEATHER_LON` | | 預設 25.12 / 121.51（唭哩岸捷運站附近） |
 | `OPEN_METEO_MODEL` | | 預設 `ecmwf_ifs025` |
 | `DUE_NOW_URL` | | 預設 `https://now.tschool.cc` |
-| `DUE_NOW_GLANCE_KEY` | 要顯示作業時 | 跟 Due Now 那邊設定的金鑰同一串 |
+| `DUE_NOW_TOKEN` | 要顯示作業時 | Due Now 的開發者 API token（`dn_…`），到 Due Now 設定 → 開發者 API 產生，權限選 read 就夠。90 天沒用會失效，看板常駐就不會 |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | 要顯示行事曆時 | 服務帳戶金鑰 JSON 整串 |
 | `GOOGLE_CALENDAR_IDS` | 要顯示行事曆時 | 逗號分隔；個人主行事曆的 ID 就是你的 Gmail 地址 |
 
