@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0E1316">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>看一眼</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="pager">
+
+  <!-- 第一頁（常駐）：設計稿 A2 -->
+  <section class="page">
+    <div class="stage now-page">
+      <div class="main">
+        <div class="head">
+          <div class="now">
+            <div class="meta"><span class="clock"></span><span class="stale"></span></div>
+            <div class="headline" id="headline">&nbsp;</div>
+            <div class="summary" id="summary">&nbsp;</div>
+          </div>
+          <div class="utci">
+            <div class="utci-label">UTCI</div>
+            <div class="utci-value mono" id="utci-value">--</div>
+            <div class="pill" id="utci-pill" hidden></div>
+          </div>
+        </div>
+        <div class="chart">
+          <div class="bars" id="bars"></div>
+          <div class="ticks" id="ticks"></div>
+        </div>
+      </div>
+      <aside class="side" id="side">
+        <div class="block">
+          <div class="block-title">未交作業</div>
+          <div class="hw">
+            <div class="hw-item"><span class="ring ring-today mono" id="hw-today">–</span><span>今天</span></div>
+            <div class="hw-item"><span class="ring ring-soon mono" id="hw-soon">–</span><span>三天內</span></div>
+          </div>
+        </div>
+        <div class="block">
+          <div class="block-title">今天</div>
+          <div class="events" id="cal-today"></div>
+        </div>
+        <div class="block">
+          <div class="block-title">明天</div>
+          <div class="events" id="cal-tomorrow"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 第二頁：設計稿 W1 -->
+  <section class="page">
+    <div class="stage week-page">
+      <div class="week-head">
+        <div class="week-title">未來一週</div>
+        <div class="week-note"><span class="stale"></span>淡的那幾天＝4 天後，參考就好</div>
+      </div>
+      <div class="week-row week-hours">
+        <div class="day-label"></div>
+        <div class="cells" id="week-hours"></div>
+        <div class="day-utci week-utci-head">UTCI</div>
+      </div>
+      <div class="week-rows" id="week-rows"></div>
+    </div>
+  </section>
+
+</main>
+<script src="app.js"></script>
+</body>
+</html>

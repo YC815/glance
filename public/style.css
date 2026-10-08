@@ -1,0 +1,280 @@
+:root {
+  --bg: #0e1316;
+  --fg: #e8edf0;
+  --fg2: #93a1a9;
+  --fg3: #b9c4ca;
+  --line: #263037;
+
+  --rain0: #2b3338;
+  --rain0-week: #232b30;
+  --rain1: #7ec8f2;
+  --rain2: #2f7fe0;
+  --rain3: #f2c230;
+  --rain4: #e5484d;
+
+  --utci0: #b9c4ca;
+  --utci1: #e8893a;
+  --utci2: #ff6a4d;
+  --utci3: #e5484d;
+
+  --hw-today: #ff7a6b;
+  --hw-soon: #f2c230;
+
+  /* 由 app.js 設定：畫布縮放與防烙印位移 */
+  --scale: 1;
+  --shift-x: 0px;
+  --shift-y: 0px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Noto Sans TC", sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mono { font-family: "IBM Plex Mono", monospace; }
+
+/* 左右滑換頁 */
+#pager {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior: none;
+}
+#pager::-webkit-scrollbar { display: none; }
+
+.page {
+  position: relative;
+  flex: 0 0 100vw;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+}
+
+/* 設計稿是 844×390；整塊等比縮放置中，維持跟設計稿一樣的比例 */
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 844px;
+  height: 390px;
+  transform: translate(-50%, -50%) translate(var(--shift-x), var(--shift-y)) scale(var(--scale));
+  transition: transform 2s ease;
+}
+
+/* ---------- 第一頁 ---------- */
+
+.now-page {
+  display: grid;
+  grid-template-columns: 75% 25%;
+  padding: 24px 28px 20px;
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 24px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.now {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta { font-size: 14px; color: var(--fg2); white-space: nowrap; }
+.stale { color: var(--hw-soon); }
+.stale:empty { display: none; }
+
+.headline { font-size: 36px; font-weight: 900; line-height: 1.1; white-space: nowrap; }
+.summary { font-size: 14px; color: var(--fg3); }
+
+.utci {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.utci-label { font-size: 14px; color: var(--fg2); }
+.utci-value { font-size: 46px; font-weight: 600; line-height: 1; }
+.pill {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #1c0d02;
+  background: var(--utci0);
+}
+.pill.u1 { background: var(--utci1); }
+.pill.u2 { background: var(--utci2); }
+.pill.u3 { background: var(--utci3); }
+
+.chart {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bars {
+  flex: 1 1 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  border-bottom: 1px solid var(--line);
+}
+.bar {
+  flex: 1 1 0;
+  min-height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rain0);
+}
+.ticks { display: flex; gap: 3px; }
+.tick {
+  flex: 1 1 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--fg2);
+  white-space: nowrap;
+  overflow: visible;
+  width: 0;
+}
+
+.r0 { background: var(--rain0); }
+.r1 { background: var(--rain1); }
+.r2 { background: var(--rain2); }
+.r3 { background: var(--rain3); }
+.r4 { background: var(--rain4); }
+
+.side {
+  min-width: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+.block { display: flex; flex-direction: column; gap: 8px; }
+.block-title { font-size: 13px; font-weight: 700; color: var(--fg2); }
+
+.hw { display: flex; gap: 14px; }
+.hw-item { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
+.ring {
+  width: 38px;
+  height: 38px;
+  border: 2px solid;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.ring-today { color: var(--hw-today); border-color: var(--hw-today); }
+.ring-soon { color: var(--hw-soon); border-color: var(--hw-soon); }
+
+.events { display: flex; flex-direction: column; gap: 10px; }
+.event { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
+.event.past { opacity: 0.4; }
+.event-time {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: var(--fg2);
+  width: 42px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.event-time.wide { font-family: "Noto Sans TC", sans-serif; }
+.event-title {
+  font-size: 15px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.events-empty, .events-more { font-size: 13px; color: var(--fg2); }
+
+/* ---------- 第二頁 ---------- */
+
+.week-page {
+  padding: 22px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.week-head { display: flex; justify-content: space-between; align-items: baseline; }
+.week-title { font-size: 20px; font-weight: 900; }
+.week-note { font-size: 12px; color: var(--fg2); }
+.week-note .stale { margin-right: 12px; }
+
+.week-rows {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.week-row { display: flex; align-items: center; gap: 10px; }
+.week-rows .week-row { flex: 1 1 0; }
+.week-row.dim { opacity: 0.5; }
+
+.day-label { width: 78px; flex: 0 0 auto; display: flex; align-items: baseline; gap: 6px; }
+.day-name { font-size: 15px; font-weight: 700; }
+.day-date { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--fg2); }
+
+.cells { flex: 1 1 0; display: flex; gap: 2px; align-self: stretch; }
+.cell { flex: 1 1 0; border-radius: 3px; }
+.cell.r0 { background: var(--rain0-week); }
+.hour-label {
+  flex: 1 1 0;
+  width: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--fg2);
+  white-space: nowrap;
+}
+
+.day-utci {
+  width: 44px;
+  flex: 0 0 auto;
+  text-align: right;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--utci0);
+}
+.day-utci.u1 { color: var(--utci1); }
+.day-utci.u2 { color: var(--utci2); }
+.day-utci.u3 { color: var(--utci3); }
+.week-utci-head { font-family: "Noto Sans TC", sans-serif; font-size: 11px; font-weight: 400; color: var(--fg2); }
+
+/* 沒有金鑰或第一次載入失敗時的提示 */
+.notice { color: var(--fg2); }
