@@ -84,7 +84,7 @@ test("服務帳戶 JWT 用 RS256 簽、對得起來", () => {
   assert.throws(() => parseServiceAccount("{}"));
 });
 
-test("作業：解析 due-now 的回應，格式不對就丟錯", () => {
+test("作業：解析 Due Now 的回應，格式不對就丟錯", () => {
   assert.deepEqual(parseHomework({ dueToday: 2, dueIn3Days: 5 }), { today: 2, within3Days: 5 });
   assert.throws(() => parseHomework({ dueToday: "2" }));
   assert.throws(() => parseHomework(null));
