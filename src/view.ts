@@ -134,6 +134,10 @@ const HEADLINES: Record<RainLevel, string> = {
 
 /** 大字標題與一句摘要。 */
 export function rainText(bars: Bar[], now: number): { headline: string; summary: string } {
+  // 雨量欄位整段都沒值時不能說「不會下雨」：分不出是真的不下，還是資料沒進來
+  if (bars.every((b) => b.mm === null)) {
+    return { headline: "沒有雨量資料", summary: "預報沒有給雨量，晚點再看" };
+  }
   const headline = HEADLINES[bars[0]?.level ?? 0];
 
   if (isRain(bars[0]?.mm ?? null)) {

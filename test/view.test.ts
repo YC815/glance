@@ -137,9 +137,9 @@ test("一週：明天起 7 天、每天 05–20 共 16 格、第 4 天起變淡�
   assert.deepEqual(week[0].utci, { value: 33, level: 2, label: "強熱壓力" });
 });
 
-test("預報缺資料時不爆", () => {
+test("預報缺資料時不爆，也不會說成「不會下雨」", () => {
   const v = buildWeatherView([], tp("2026-10-08T21:00:00"));
   assert.equal(v.utci, null);
-  assert.equal(v.headline, "現在沒下雨");
+  assert.equal(v.headline, "沒有雨量資料");
   assert.equal(v.week[0].utci, null);
 });
