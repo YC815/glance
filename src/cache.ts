@@ -1,6 +1,9 @@
 // 每個資料來源各自快取：過期才重抓；抓失敗就繼續用上一筆成功的，並記下錯誤。
 // 同時有好幾個請求進來時只抓一次。
 
+/** 強制重抓的最短間隔：只是擋連點兩下（同步中前端本來就不讓再點）。 */
+export const MIN_FORCE_INTERVAL_MS = 2_000;
+
 export type Source<T> = {
   value: T | null;
   /** 上一次成功抓到的時間（epoch ms） */
@@ -24,10 +27,12 @@ export class CachedSource<T> {
     this.retryMs = retryMs;
   }
 
-  async get(now = Date.now()): Promise<Source<T>> {
+  /** `force`：不管快取有沒有過期都重抓（使用者手動要求同步時）。 */
+  async get(now = Date.now(), force = false): Promise<Source<T>> {
     const fresh = this.state.updatedAt !== null && now - this.state.updatedAt < this.ttlMs;
     const backingOff = this.state.error !== null && now - this.lastAttempt < this.retryMs;
-    if (!fresh && !backingOff) {
+    const forced = force && now - this.lastAttempt >= MIN_FORCE_INTERVAL_MS;
+    if (forced || (!fresh && !backingOff)) {
       this.inflight ??= this.refresh(now).finally(() => {
         this.inflight = null;
       });

@@ -132,3 +132,18 @@ test("快取：同時多個請求只抓一次", async () => {
   await Promise.all([src.get(0), src.get(0), src.get(0)]);
   assert.equal(calls, 1);
 });
+
+test("快取：強制重抓會跳過 TTL，但 2 秒內連點只抓一次", async () => {
+  let calls = 0;
+  const src = new CachedSource(5 * 60_000, async () => ++calls);
+  const t0 = 1_000_000;
+  await src.get(t0);
+  await src.get(t0 + 10_000, true);
+  assert.equal(calls, 2);
+  await src.get(t0 + 11_000, true);
+  assert.equal(calls, 2);
+  await src.get(t0 + 12_000, true);
+  assert.equal(calls, 3);
+  await src.get(t0 + 20_000);
+  assert.equal(calls, 3);
+});

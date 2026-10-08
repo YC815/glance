@@ -184,7 +184,19 @@ html, body {
 .block { display: flex; flex-direction: column; gap: 8px; }
 .block-title { font-size: 13px; font-weight: 700; color: var(--fg2); }
 
-.hw { display: flex; gap: 14px; }
+.hw {
+  display: flex;
+  gap: 14px;
+  /* 整排都是按鈕：點任一個數字就同步 */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .hw-item { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
 .ring {
   width: 38px;
@@ -198,6 +210,35 @@ html, body {
   font-weight: 600;
   flex: 0 0 auto;
 }
+.ring { position: relative; }
+.ring-num { transition: opacity 0.2s; }
+
+/* 同步中：半透明蓋住數字，上面一圈轉動的弧 */
+.ring::before,
+.ring::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  bottom: -2px;
+  left: -2px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.ring::before { background: rgba(14, 19, 22, 0.6); }
+.ring::after {
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+}
+.hw.syncing .ring::before,
+.hw.syncing .ring::after { opacity: 1; }
+.hw.syncing .ring::after { animation: spin 0.9s linear infinite; }
+.hw.syncing .ring-num { opacity: 0.35; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .ring-today { color: var(--hw-today); border-color: var(--hw-today); }
 .ring-soon { color: var(--hw-soon); border-color: var(--hw-soon); }
 

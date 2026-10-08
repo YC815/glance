@@ -236,14 +236,30 @@
   // ---------- 抓資料 ----------
 
   var fetching = false;
+  var pendingForce = false;
+  var FETCH_TIMEOUT_MS = 20 * 1000;
 
-  function refresh() {
-    if (fetching) return;
+  function fetchWithTimeout(url, options) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(new Error("timeout")); }, FETCH_TIMEOUT_MS);
+      fetch(url, options).then(
+        function (res) { clearTimeout(timer); resolve(res); },
+        function (err) { clearTimeout(timer); reject(err); }
+      );
+    });
+  }
+
+  /** forceHomework：跳過伺服器快取，直接問 Due Now（使用者點了作業數字） */
+  function refresh(forceHomework) {
+    if (fetching) {
+      if (forceHomework) pendingForce = true; // 等手上這次結束再補一次強制的
+      return;
+    }
     fetching = true;
     var headers = {};
     var token = load(TOKEN_KEY);
     if (token) headers.Authorization = "Bearer " + token;
-    fetch("api/glance", { headers: headers, cache: "no-store" })
+    fetchWithTimeout("api/glance" + (forceHomework ? "?refresh=homework" : ""), { headers: headers, cache: "no-store" })
       .then(function (res) {
         if (res.status === 401) {
           state.unauthorized = true;
@@ -262,8 +278,36 @@
       .then(function () {
         fetching = false;
         render();
+        if (forceHomework) endSync();
+        if (pendingForce) {
+          pendingForce = false;
+          refresh(true);
+        }
       });
   }
+
+  // ---------- 手動同步作業 ----------
+
+  var SYNC_MIN_MS = 700; // 轉圈至少轉這麼久，太快閃一下反而看不出有沒有同步
+  var syncStartedAt = 0;
+  var hwButton = $("hw");
+
+  function startSync() {
+    if (syncStartedAt) return;
+    syncStartedAt = Date.now();
+    hwButton.classList.add("syncing");
+    refresh(true);
+  }
+
+  function endSync() {
+    var wait = Math.max(0, SYNC_MIN_MS - (Date.now() - syncStartedAt));
+    setTimeout(function () {
+      hwButton.classList.remove("syncing");
+      syncStartedAt = 0;
+    }, wait);
+  }
+
+  hwButton.addEventListener("click", startSync);
 
   // ---------- 版面：縮放、防烙印、換頁 ----------
 

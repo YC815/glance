@@ -40,7 +40,10 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     if (!authorized(req.headers.authorization, cfg.token)) {
       return send(res, 401, JSON.stringify({ error: "金鑰不對" }), "application/json");
     }
-    const payload = await glance();
+    // ?refresh=homework：使用者點了作業數字，跳過快取直接問 Due Now
+    const payload = await glance(Date.now(), {
+      refreshHomework: url.searchParams.get("refresh") === "homework",
+    });
     return send(res, 200, JSON.stringify(payload), "application/json; charset=utf-8", {
       "cache-control": "no-store",
     });

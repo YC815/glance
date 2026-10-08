@@ -26,18 +26,20 @@ export type ClientEvent = { time: string; title: string; end: number };
 export function createGlance(cfg: Config) {
   const weather = new CachedSource<Forecast>(15 * MINUTE, () => fetchForecast(cfg.weather));
   const homework = cfg.homework
-    ? // 在 Due Now 勾完成後要很快反映，不然會焦慮；Due Now 那邊只是兩個 count 查詢，很輕。
-      // 用 50 秒而不是 60 秒：手機每分鐘來一次，計時稍有誤差也保證每次都拿到新的。
-      new CachedSource<Homework>(50_000, () => fetchHomework(cfg.homework!))
+    ? // 平常 5 分鐘；在 Due Now 勾完成後可以點看板上的數字強制重抓（refreshHomework）
+      new CachedSource<Homework>(5 * MINUTE, () => fetchHomework(cfg.homework!))
     : null;
   const calendar = cfg.calendar
     ? new CachedSource<CalendarView>(5 * MINUTE, () => fetchCalendar(cfg.calendar!))
     : null;
 
-  return async function glance(now = Date.now()): Promise<GlancePayload> {
+  return async function glance(
+    now = Date.now(),
+    opts: { refreshHomework?: boolean } = {},
+  ): Promise<GlancePayload> {
     const [w, h, c] = await Promise.all([
       weather.get(now),
-      homework?.get(now) ?? null,
+      homework?.get(now, opts.refreshHomework) ?? null,
       calendar?.get(now) ?? null,
     ]);
     const cal = c?.value ?? null;
