@@ -73,4 +73,13 @@ createServer((req, res) => {
   });
 }).listen(cfg.port, () => {
   console.log(`[glance] http://localhost:${cfg.port}`);
+  // 啟動就先抓一輪：手機第一次打開不用等，日誌也看得出各來源通不通
+  glance().then((p) => {
+    const w = p.weather;
+    console.log(
+      `[glance] 預熱：天氣 ${w ? `ok（${w.headline}，UTCI ${w.utci?.value ?? "-"}）` : `失敗：${p.sources.weather.error}`}；` +
+        `作業 ${p.homework ? `ok（今天 ${p.homework.today}，三天內 ${p.homework.within3Days}）` : (p.sources.homework.error ?? "未設定")}；` +
+        `行事曆 ${p.calendar ? `ok（今天 ${p.calendar.today.length}，明天 ${p.calendar.tomorrow.length}）` : (p.sources.calendar.error ?? "未設定")}`,
+    );
+  });
 });
