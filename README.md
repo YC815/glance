@@ -15,7 +15,7 @@ Node 22.18 以上直接跑 TypeScript（型別剝除），**沒有任何執行�
 |---|---|---|
 | 天氣 | Open-Meteo，ECMWF 模式（預設 `ecmwf_ifs025`），逐小時雨量、氣溫、濕度、風速、日射量 | 15 分鐘 |
 | UTCI | 自己算：`src/utci.ts`（照抄 pythermalcomfort 的多項式），平均輻射溫度用日射量估（`src/mrt.ts`，ASHRAE SolarCal） | 跟天氣一起 |
-| 作業 | Due Now 的唯讀 API（Bearer 金鑰，格式見 `src/homework.ts`） | 5 分鐘 |
+| 作業 | Due Now 的唯讀 API（Bearer 金鑰，格式見 `src/homework.ts`） | 1 分鐘（在 Due Now 勾完成後很快反映） |
 | 行事曆 | Google Calendar API，服務帳戶唯讀，今天＋明天 | 5 分鐘 |
 
 某個來源抓失敗時，繼續回上一筆成功的資料，並在 `sources` 裡附上錯誤與最後更新時間。
