@@ -4,9 +4,10 @@
 export type HomeworkConfig = { baseUrl: string; key: string };
 
 export type Homework = {
-  /** 今天截止、還沒交（截止時間還沒過）的份數 */
+  /** 今天截止、還沒交、截止時間還沒過的份數：deadline ∈ (現在, 明天 00:00] */
   today: number;
-  /** 三天內（今天、明天、後天）截止、還沒交的份數，含今天 */
+  /** 今天、明天、後天這三個日曆天（台北時間）截止、還沒交、截止時間還沒過的份數，含今天：
+   *  deadline ∈ (現在, 大後天 00:00] */
   within3Days: number;
 };
 
