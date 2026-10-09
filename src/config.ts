@@ -29,13 +29,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     .filter(Boolean);
   const calendar: CalendarConfig | null = icsUrls.length > 0 ? { icsUrls } : null;
 
+  // 從網頁複製貼上常夾帶前後空白或換行，Strava 會整個拒絕
+  const stravaId = env.STRAVA_CLIENT_ID?.trim();
+  const stravaSecret = env.STRAVA_CLIENT_SECRET?.trim();
+  const stravaToken = env.STRAVA_REFRESH_TOKEN?.trim();
   const strava =
-    env.STRAVA_CLIENT_ID && env.STRAVA_CLIENT_SECRET && env.STRAVA_REFRESH_TOKEN
-      ? {
-          clientId: env.STRAVA_CLIENT_ID,
-          clientSecret: env.STRAVA_CLIENT_SECRET,
-          refreshToken: env.STRAVA_REFRESH_TOKEN,
-        }
+    stravaId && stravaSecret && stravaToken
+      ? { clientId: stravaId, clientSecret: stravaSecret, refreshToken: stravaToken }
       : null;
 
   return {

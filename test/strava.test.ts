@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
 import { RideStore } from "../src/store.ts";
-import { Strava } from "../src/strava.ts";
+import { Strava, errorMessage } from "../src/strava.ts";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -22,8 +22,8 @@ function fakeStrava(activities: object[]) {
     calls.push(url);
     const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
     if (url.endsWith("/oauth/token")) {
-      const body = JSON.parse(String(init?.body));
-      return json({ access_token: "acc", expires_at: now / 1000 + 6 * 3600, refresh_token: `${body.refresh_token}-next` });
+      const body = new URLSearchParams(String(init?.body));
+      return json({ access_token: "acc", expires_at: now / 1000 + 6 * 3600, refresh_token: `${body.get("refresh_token")}-next` });
     }
     if (url.includes("/athlete/activities")) return json(url.includes("page=1") ? activities : []);
     if (url.includes("/activities/2/streams")) return json({ message: "Record Not Found" }, 404);
@@ -82,4 +82,14 @@ test("Strava 同步：只收騎車、有功率計的抓串流算數字，換發�
   await new Strava({ clientId: "1", clientSecret: "s", refreshToken: "new" }, new RideStore(dir)).sync(now);
   const saved3 = JSON.parse(await readFile(join(dir, "rides.json"), "utf8"));
   assert.equal(saved3.refreshToken, "new-next");
+});
+
+test("Strava 錯誤訊息：帶出是哪個欄位不對，不帶值", async () => {
+  const res = new Response(
+    JSON.stringify({ message: "Bad Request", errors: [{ resource: "RefreshToken", field: "refresh_token", code: "invalid" }] }),
+    { status: 400 },
+  );
+  assert.equal(await errorMessage(res), "Bad Request（RefreshToken.refresh_token invalid）");
+  assert.equal(await errorMessage(new Response(JSON.stringify({ message: "Authorization Error" }))), "Authorization Error");
+  assert.equal(await errorMessage(new Response("not json")), "unknown");
 });

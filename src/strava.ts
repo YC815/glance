@@ -147,10 +147,10 @@ export class Strava {
     const envId = fingerprint(this.cfg.refreshToken);
     const refreshToken =
       data.refreshToken && data.refreshTokenEnv === envId ? data.refreshToken : this.cfg.refreshToken;
+    // Strava 文件用的是表單格式
     const res = await fetch(TOKEN_URL, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         client_id: this.cfg.clientId,
         client_secret: this.cfg.clientSecret,
         grant_type: "refresh_token",
@@ -179,11 +179,24 @@ type SummaryActivity = {
   device_watts?: boolean;
 };
 
-/** Strava 的錯誤格式是 { message, errors }；只留 message，不把整包（可能含 token）帶進 log。 */
-async function errorMessage(res: Response): Promise<string> {
+/**
+ * Strava 的錯誤格式是 { message, errors: [{ resource, field, code }] }。
+ * 留 message 和每個錯誤的 resource／field／code（例如「RefreshToken.refresh_token invalid」），
+ * 看得出是哪個值不對；不把整包（可能含 token）帶進 log。
+ */
+export async function errorMessage(res: Response): Promise<string> {
   try {
-    const j = (await res.json()) as { message?: unknown };
-    return typeof j.message === "string" ? j.message : "unknown";
+    const j = (await res.json()) as { message?: unknown; errors?: unknown };
+    const message = typeof j.message === "string" ? j.message : "unknown";
+    const details = Array.isArray(j.errors)
+      ? j.errors
+          .map((e: { resource?: unknown; field?: unknown; code?: unknown }) =>
+            [e.resource, e.field].filter((x) => typeof x === "string").join(".") +
+            (typeof e.code === "string" ? ` ${e.code}` : ""),
+          )
+          .filter(Boolean)
+      : [];
+    return details.length ? `${message}（${details.join("、")}）` : message;
   } catch {
     return "unknown";
   }
