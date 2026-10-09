@@ -340,11 +340,13 @@ html, body {
 .utci-chart .dot.u1 { fill: var(--utci1); }
 .utci-chart .dot.u2 { fill: var(--utci2); }
 .utci-chart .dot.u3 { fill: var(--utci3); }
+.utci-chart .dot.past { opacity: 0.55; }
 .utci-chart text.mark { fill: var(--fg3); font-weight: 600; }
 .utci-chart text.empty { font-family: "Noto Sans TC", sans-serif; font-size: 14px; }
 .sheet-legend { display: flex; gap: 18px; font-size: 12px; color: var(--fg2); }
 .sheet-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.swatch.u0 { background: var(--utci0); }
 .swatch.u1 { background: var(--utci1); }
 .swatch.u2 { background: var(--utci2); }
 .swatch.u3 { background: var(--utci3); }

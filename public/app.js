@@ -346,6 +346,12 @@
     svg("line", { x1: nowX, x2: nowX, y1: PAD.top, y2: PAD.top + plotH, "class": "now-line" }, chart);
     svgText(chart, nowX, PAD.top - 6, "現在");
 
+    // 每小時一個點，顏色是那小時的熱壓力分級；現在以前的一樣畫淡
+    hours.forEach(function (p, i) {
+      if (p.value === null) return;
+      svg("circle", { cx: x(i), cy: y(p.value), r: 4, "class": "dot u" + p.level + (i < nowH ? " past" : "") }, chart);
+    });
+
     // 最高的那一小時直接標數字
     var maxH = -1;
     hours.forEach(function (p, i) { if (p.value === max && maxH < 0) maxH = i; });
@@ -353,7 +359,6 @@
     hours.forEach(function (p, i) { if (p.value === min && minH < 0) minH = i; });
     var maxLabelX = Math.max(PAD.left + 24, Math.min(CHART_W - PAD.right - 24, x(maxH)));
     svgText(chart, maxLabelX, y(max) - 10, fmt1(max), "middle", "mark");
-    svg("circle", { cx: x(maxH), cy: y(max), r: 4, "class": "dot u" + hours[maxH].level }, chart);
 
     setText($("utci-sheet-sub"),
       "最高 " + fmt1(max) + "（" + pad2(maxH) + ":00）　最低 " + fmt1(min) + "（" + pad2(minH) + ":00）");
@@ -368,7 +373,7 @@
       var at = null;
       if (a && a.value !== null && b && b.value !== null) at = a.value + (b.value - a.value) * f;
       else if (a && a.value !== null) at = a.value;
-      if (at !== null) svg("circle", { cx: nowX, cy: y(at), r: 5, "class": "dot u" + (w.utci ? w.utci.level : 0) }, chart);
+      if (at !== null) svg("circle", { cx: nowX, cy: y(at), r: 6, "class": "dot u" + (w.utci ? w.utci.level : 0) }, chart);
       readout.appendChild(document.createTextNode("現在"));
       readout.appendChild(el("b", "", w.utci ? w.utci.value + "°" : "--"));
       if (w.utci) readout.appendChild(document.createTextNode(w.utci.label));
@@ -378,7 +383,7 @@
     readout.appendChild(document.createTextNode(pad2(picked) + ":00"));
     if (p && p.value !== null) {
       svg("line", { x1: x(picked), x2: x(picked), y1: PAD.top, y2: PAD.top + plotH, "class": "cross" }, chart);
-      svg("circle", { cx: x(picked), cy: y(p.value), r: 5, "class": "dot u" + p.level }, chart);
+      svg("circle", { cx: x(picked), cy: y(p.value), r: 6, "class": "dot u" + p.level }, chart);
       readout.appendChild(el("b", "", fmt1(p.value)));
       readout.appendChild(document.createTextNode(HEAT_LABELS[p.level]));
     } else {
