@@ -112,6 +112,21 @@ test("現在的 UTCI 在兩個整點之間內插", () => {
   assert.deepEqual(v.utci, { value: 15, level: 0, label: "無熱壓力" }); // 14.5 四捨五入
 });
 
+test("今天每小時的 UTCI：00–23 點共 24 個，取到小數一位、附熱壓力分級", () => {
+  const today = tp("2026-10-08T00:00:00");
+  const hours = forecast(today, () => 0, (t) => 20 + (t - today) / HOUR_MS + 0.04);
+  hours.splice(3, 1); // 03:00 沒資料
+  const { utciToday } = buildWeatherView(hours, tp("2026-10-08T14:30:00"));
+  assert.equal(utciToday.length, 24);
+  assert.equal(utciToday[0].t, today);
+  assert.equal(utciToday[23].t, tp("2026-10-08T23:00:00"));
+  assert.deepEqual(utciToday[3], { t: tp("2026-10-08T03:00:00"), value: null, level: null });
+  assert.deepEqual(utciToday[6], { t: tp("2026-10-08T06:00:00"), value: 26, level: 1 });
+  assert.deepEqual(utciToday[14], { t: tp("2026-10-08T14:00:00"), value: 34, level: 2 });
+  assert.deepEqual(utciToday[18].value, 38);
+  assert.equal(utciToday[18].level, 3);
+});
+
 test("一週：明天起 7 天、每天 05–20 共 16 格、第 4 天起變淡、UTCI 取 05–20 的最高", () => {
   const today = tp("2026-10-08T00:00:00"); // 週四
   const now = tp("2026-10-08T21:00:00");
@@ -141,6 +156,8 @@ test("一週：明天起 7 天、每天 05–20 共 16 格、第 4 天起變淡�
 test("預報缺資料時不爆，也不會說成「不會下雨」", () => {
   const v = buildWeatherView([], tp("2026-10-08T21:00:00"));
   assert.equal(v.utci, null);
+  assert.equal(v.utciToday.length, 24);
+  assert.ok(v.utciToday.every((h) => h.value === null));
   assert.equal(v.headline, "沒有雨量資料");
   assert.equal(v.week[0].utci, null);
 });

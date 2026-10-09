@@ -145,6 +145,7 @@
     });
 
     renderWeek(w.week);
+    if (!sheet.hidden) renderUtciSheet();
   }
 
   function renderWeek(week) {
@@ -421,6 +422,192 @@
     renderCalendar(d && d.calendar, now);
     renderTraining(d && d.training, d && d.sources && d.sources.training);
   }
+
+  // ---------- 今天每小時 UTCI：點 UTCI 跳出的折線圖 ----------
+
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var CHART_W = 620;
+  var CHART_H = 230;
+  var PAD = { left: 30, right: 12, top: 18, bottom: 22 };
+  var HEAT_LABELS = ["無熱壓力", "中度熱壓力", "強熱壓力", "非常強熱壓力"];
+  var HEAT_BANDS = [[26, 32, 1], [32, 38, 2], [38, Infinity, 3]]; // [下限, 上限, 分級]
+
+  var sheet = $("utci-sheet");
+  var chart = $("utci-chart");
+  var sheetTimer = null;
+  var picked = null; // 手指點到的那個整點（0–23）；null 就顯示「現在」
+
+  function svg(tag, attrs, parent) {
+    var e = document.createElementNS(SVG_NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  function svgText(parent, x, y, text, anchor, className) {
+    var t = svg("text", { x: x, y: y, "text-anchor": anchor || "middle" }, parent);
+    if (className) t.setAttribute("class", className);
+    t.textContent = text;
+    return t;
+  }
+
+  /** 現在是今天第幾小時（帶小數，台北時間） */
+  function hourOfDay(now) {
+    var p = tp(now);
+    return p.hour + p.minute / 60;
+  }
+
+  function fmt1(v) { return v.toFixed(1) + "°"; }
+
+  function openUtciSheet() {
+    picked = null;
+    sheet.hidden = false;
+    renderUtciSheet();
+    clearTimeout(sheetTimer);
+    sheetTimer = setTimeout(closeUtciSheet, BACK_TO_FIRST_MS); // 常駐看板，開著忘了關也會自己收
+  }
+
+  function closeUtciSheet() {
+    clearTimeout(sheetTimer);
+    sheet.hidden = true;
+  }
+
+  function renderUtciSheet() {
+    var w = state.data && state.data.weather;
+    var hours = (w && w.utciToday) || [];
+    var now = Date.now();
+    clear(chart);
+    chart.setAttribute("viewBox", "0 0 " + CHART_W + " " + CHART_H);
+
+    var values = [];
+    hours.forEach(function (h) { if (h.value !== null) values.push(h.value); });
+    if (!values.length) {
+      setText($("utci-sheet-sub"), "");
+      setText($("utci-readout"), "");
+      svgText(chart, CHART_W / 2, CHART_H / 2, "還沒有今天的 UTCI 資料", "middle", "empty");
+      return;
+    }
+
+    var min = Math.min.apply(null, values);
+    var max = Math.max.apply(null, values);
+    var lo = Math.floor((min - 1) / 5) * 5;
+    var hi = Math.ceil((max + 1) / 5) * 5;
+    if (hi - lo < 10) hi = lo + 10;
+    var plotW = CHART_W - PAD.left - PAD.right;
+    var plotH = CHART_H - PAD.top - PAD.bottom;
+    var x = function (h) { return PAD.left + (h / 23) * plotW; };
+    var y = function (v) { return PAD.top + ((hi - v) / (hi - lo)) * plotH; };
+
+    // 熱壓力分級的底色帶
+    HEAT_BANDS.forEach(function (b) {
+      var top = Math.min(b[1], hi);
+      var bottom = Math.max(b[0], lo);
+      if (top <= bottom) return;
+      svg("rect", { x: PAD.left, y: y(top), width: plotW, height: y(bottom) - y(top), "class": "band" + b[2] }, chart);
+    });
+
+    // 格線：每 5 度一條；時間每 3 小時一個標籤
+    for (var v = lo; v <= hi; v += 5) {
+      svg("line", { x1: PAD.left, x2: CHART_W - PAD.right, y1: y(v), y2: y(v), "class": "grid" }, chart);
+      svgText(chart, PAD.left - 6, y(v) + 4, String(v), "end");
+    }
+    for (var h = 0; h < 24; h += 3) svgText(chart, x(h), CHART_H - 6, pad2(h));
+
+    // 折線：沒資料的小時斷開；現在以前畫淡
+    var d = "";
+    var pen = false;
+    hours.forEach(function (p, i) {
+      if (p.value === null) { pen = false; return; }
+      d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(p.value).toFixed(1);
+      pen = true;
+    });
+    var nowH = hourOfDay(now);
+    var nowX = x(Math.min(nowH, 23));
+    var defs = svg("defs", {}, chart);
+    var pastClip = svg("clipPath", { id: "utci-past" }, defs);
+    svg("rect", { x: 0, y: 0, width: nowX, height: CHART_H }, pastClip);
+    var futureClip = svg("clipPath", { id: "utci-future" }, defs);
+    svg("rect", { x: nowX, y: 0, width: CHART_W - nowX, height: CHART_H }, futureClip);
+    svg("path", { d: d, "class": "line line-past", "clip-path": "url(#utci-past)" }, chart);
+    svg("path", { d: d, "class": "line line-future", "clip-path": "url(#utci-future)" }, chart);
+
+    // 「現在」的虛線
+    svg("line", { x1: nowX, x2: nowX, y1: PAD.top, y2: PAD.top + plotH, "class": "now-line" }, chart);
+    svgText(chart, nowX, PAD.top - 6, "現在");
+
+    // 每小時一個點，顏色是那小時的熱壓力分級；現在以前的一樣畫淡
+    hours.forEach(function (p, i) {
+      if (p.value === null) return;
+      svg("circle", { cx: x(i), cy: y(p.value), r: 4, "class": "dot u" + p.level + (i < nowH ? " past" : "") }, chart);
+    });
+
+    // 最高的那一小時直接標數字
+    var maxH = -1;
+    hours.forEach(function (p, i) { if (p.value === max && maxH < 0) maxH = i; });
+    var minH = -1;
+    hours.forEach(function (p, i) { if (p.value === min && minH < 0) minH = i; });
+    var maxLabelX = Math.max(PAD.left + 24, Math.min(CHART_W - PAD.right - 24, x(maxH)));
+    svgText(chart, maxLabelX, y(max) - 10, fmt1(max), "middle", "mark");
+
+    setText($("utci-sheet-sub"),
+      "最高 " + fmt1(max) + "（" + pad2(maxH) + ":00）　最低 " + fmt1(min) + "（" + pad2(minH) + ":00）");
+
+    // 右上角讀數：沒點就是「現在」（跟主畫面同一個內插值），點了就是那一小時＋十字線
+    var readout = $("utci-readout");
+    clear(readout);
+    if (picked === null) {
+      var a = hours[Math.floor(nowH)];
+      var b = hours[Math.floor(nowH) + 1];
+      var f = nowH - Math.floor(nowH);
+      var at = null;
+      if (a && a.value !== null && b && b.value !== null) at = a.value + (b.value - a.value) * f;
+      else if (a && a.value !== null) at = a.value;
+      if (at !== null) svg("circle", { cx: nowX, cy: y(at), r: 6, "class": "dot u" + (w.utci ? w.utci.level : 0) }, chart);
+      readout.appendChild(document.createTextNode("現在"));
+      readout.appendChild(el("b", "", w.utci ? w.utci.value + "°" : "--"));
+      if (w.utci) readout.appendChild(document.createTextNode(w.utci.label));
+      return;
+    }
+    var p = hours[picked];
+    readout.appendChild(document.createTextNode(pad2(picked) + ":00"));
+    if (p && p.value !== null) {
+      svg("line", { x1: x(picked), x2: x(picked), y1: PAD.top, y2: PAD.top + plotH, "class": "cross" }, chart);
+      svg("circle", { cx: x(picked), cy: y(p.value), r: 6, "class": "dot u" + p.level }, chart);
+      readout.appendChild(el("b", "", fmt1(p.value)));
+      readout.appendChild(document.createTextNode(HEAT_LABELS[p.level]));
+    } else {
+      readout.appendChild(el("b", "", "--"));
+    }
+  }
+
+  /** 手指在圖上點或拖，跳到最近的整點 */
+  function pickHour(e) {
+    var rect = chart.getBoundingClientRect();
+    if (!rect.width) return;
+    var px = ((e.clientX - rect.left) / rect.width) * CHART_W;
+    var h = Math.round(((px - PAD.left) / (CHART_W - PAD.left - PAD.right)) * 23);
+    h = Math.max(0, Math.min(23, h));
+    if (h === picked) return;
+    picked = h;
+    renderUtciSheet();
+  }
+
+  $("utci-open").addEventListener("click", openUtciSheet);
+  $("utci-close").addEventListener("click", closeUtciSheet);
+  sheet.addEventListener("click", function (e) {
+    if (e.target === sheet) closeUtciSheet(); // 點視窗外面關掉
+  });
+  chart.addEventListener("pointerdown", function (e) {
+    pickHour(e);
+    clearTimeout(sheetTimer);
+    sheetTimer = setTimeout(closeUtciSheet, BACK_TO_FIRST_MS);
+  });
+  chart.addEventListener("pointermove", function (e) {
+    if (e.pointerType === "mouse" || e.buttons) pickHour(e);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeUtciSheet();
+  });
 
   // ---------- 抓資料 ----------
 

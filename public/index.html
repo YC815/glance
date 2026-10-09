@@ -28,11 +28,11 @@
             <div class="headline" id="headline">&nbsp;</div>
             <div class="summary" id="summary">&nbsp;</div>
           </div>
-          <div class="utci">
-            <div class="utci-label">UTCI</div>
-            <div class="utci-value mono" id="utci-value">--</div>
-            <div class="pill" id="utci-pill" hidden></div>
-          </div>
+          <button class="utci" id="utci-open" type="button" aria-label="看今天每小時的 UTCI" aria-haspopup="dialog">
+            <span class="utci-label">UTCI</span>
+            <span class="utci-value mono" id="utci-value">--</span>
+            <span class="pill" id="utci-pill" hidden></span>
+          </button>
         </div>
         <div class="chart">
           <div class="bars" id="bars"></div>
@@ -56,6 +56,27 @@
           <div class="events" id="cal-tomorrow"></div>
         </div>
       </aside>
+
+      <!-- 點 UTCI 跳出：今天每小時的 UTCI 折線圖 -->
+      <div class="sheet" id="utci-sheet" hidden>
+        <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="utci-sheet-title">
+          <div class="sheet-head">
+            <div>
+              <div class="sheet-title" id="utci-sheet-title">今天每小時 UTCI</div>
+              <div class="sheet-sub" id="utci-sheet-sub"></div>
+            </div>
+            <div class="sheet-readout" id="utci-readout"></div>
+            <button class="sheet-close" id="utci-close" type="button" aria-label="關閉">×</button>
+          </div>
+          <svg class="utci-chart" id="utci-chart" role="img" aria-label="今天每小時 UTCI 折線圖"></svg>
+          <div class="sheet-legend">
+            <span><i class="swatch u0"></i>無熱壓力 &lt;26</span>
+            <span><i class="swatch u1"></i>中度熱壓力 26–31</span>
+            <span><i class="swatch u2"></i>強熱壓力 32–37</span>
+            <span><i class="swatch u3"></i>非常強熱壓力 ≥38</span>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
