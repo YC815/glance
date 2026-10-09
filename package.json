@@ -2,7 +2,7 @@
   "name": "glance",
   "version": "0.1.0",
   "private": true,
-  "description": "看一眼：舊手機橫放常駐的天氣＋作業＋行事曆看板",
+  "description": "看一眼：舊手機橫放常駐的天氣＋作業＋行事曆＋騎車看板",
   "type": "module",
   "engines": {
     "node": ">=22.18"

@@ -1,14 +1,15 @@
 # 看一眼（glance）
 
-舊手機橫放在桌上，常駐顯示天氣＋作業＋行事曆。網頁全螢幕，不做 App。
+舊手機橫放在桌上，常駐顯示天氣＋作業＋行事曆，往右滑看騎車的負荷。網頁全螢幕，不做 App。
 
 - 第一頁（常駐）：現在有沒有在下雨、一句摘要、UTCI、未來 24 小時雨量、未交作業、今天明天的行程。
 - 第二頁（左右滑）：未來一週每天 05–20 點的雨量格子＋當天 UTCI 最高值。
+- 第三頁：騎車。今天出門前的狀態（TSB）、體能（CTL）、疲勞（ATL），最近 90 天的 PMC，功率曲線（近 6 週 vs 一年），一小時以上騎乘的心率漂移。
 - 設計稿：<https://claude.ai/artifact/2BwkBreVHZJHns8tNHkWKy>（第一頁 A2、第二頁 W1）
 
 ## 架構
 
-後端一支 API（`GET /api/glance`）把三個來源整理好一次回傳，手機只負責顯示。
+後端一支 API（`GET /api/glance`）把各來源整理好一次回傳，手機只負責顯示；另一支 `POST /api/ftp` 給騎車頁改 FTP。
 Node 22.18 以上直接跑 TypeScript（型別剝除），**不用 build**；執行期只有一個相依：解析 iCal 的 `ical.js`（Mozilla，本身零相依）。
 
 | 來源 | 做法 | 伺服器快取 |
@@ -17,6 +18,7 @@ Node 22.18 以上直接跑 TypeScript（型別剝除），**不用 build**；執
 | UTCI | 自己算：`src/utci.ts`（照抄 pythermalcomfort 的多項式），平均輻射溫度用日射量估（`src/mrt.ts`，ASHRAE SolarCal） | 跟天氣一起 |
 | 作業 | Due Now 開發者 API：抓未完成作業清單，自己數「今天」「三天內」 | 5 分鐘；點看板上的作業數字可立刻重抓 |
 | 行事曆 | Google 日曆的「iCal 格式私人網址」，伺服器端解析、展開重複行程，今天＋明天 | 5 分鐘 |
+| 騎車 | Strava API：列出騎乘、抓逐秒功率／心率串流，自己算 NP、TSS、CTL／ATL／TSB、功率曲線、心率漂移；算好的存在 `DATA_DIR/rides.json` | 15 分鐘；點「騎車」可立刻重抓 |
 
 某個來源抓失敗時，繼續回上一筆成功的資料，並在 `sources` 裡附上錯誤與最後更新時間。
 手機每分鐘來拿一次（伺服器有快取，不會多打外部服務）；拿不到就顯示最後一筆並標「X 分鐘前更新」。
@@ -32,7 +34,12 @@ src/
   solar.ts     太陽高度角
   calendar.ts  Google 日曆（私人 iCal 網址）
   homework.ts  Due Now
+  strava.ts    Strava：換 token、列騎乘、抓串流、速率限制
+  training.ts  騎車頁的計算（NP、TSS、PMC、功率曲線、心率漂移）
+  store.ts     騎車資料的 JSON 檔
   cache.ts     每個來源的快取與失敗沿用
+scripts/
+  strava-auth.ts  第一次授權 Strava，拿 refresh token
 public/        前端（不打包的純 JS）、service worker、manifest
 test/          node:test
 ```
@@ -48,7 +55,22 @@ test/          node:test
 - **作業的兩個數字**：只算沒勾完成、平台也還沒繳交、截止時間還沒過的。「今天」= 截止在現在到明天 00:00；「三天內」= 今天、明天、後天三個日曆天，含今天。日界用台北時間。
 - **手動同步作業**：點任一個作業數字，兩個圓圈會蓋上半透明的轉圈動畫，伺服器跳過快取直接問 Due Now（`/api/glance?refresh=homework`，2 秒內連點只算一次）。在 Due Now 勾完成後點一下，數字就會更新。
 - **手動重抓天氣**：在第二頁點「未來一週」，字的右邊轉圈，伺服器跳過快取直接問 Open-Meteo（`/api/glance?refresh=weather`）。
-- **第二頁**：停在第二頁 2 分鐘沒動就自動滑回常駐頁。
+- **第二、三頁**：停在第二或第三頁 2 分鐘沒動就自動滑回常駐頁。
+
+### 騎車頁的判斷
+
+為什麼走 Strava：Garmin 沒有給個人用的 API，非官方登入 2026 年 3 月整個壞過；intervals.icu 說 Garmin 改了條款、很快會擋 API 讀 Garmin 的資料。Strava 的 API 是官方的，自己一個人用（要有 Strava 訂閱）。HRV、靜止心率 Strava 沒有，這頁先不放。
+
+- **只算有功率計的騎乘**（Strava 的 `device_watts`）：Ride、VirtualRide、GravelRide、MountainBikeRide，電輔車不算。沒功率計的那趟 TSS 當 0。
+- **串流攤成每秒**：取樣間隔 ≤ 10 秒沿用前一個值（智慧記錄），更長的當成停下來。NP、TSS、心率漂移把停下來的段落拿掉；功率曲線補 0（不能跨過休息算平均）。
+- **TSS** = 秒數 × NP² ÷ (FTP² × 36)。**FTP 手填**（點騎車頁右上角的「FTP」），從填的那天起生效，之前的騎乘照舊用當時的；比第一筆還早的騎乘用第一筆。每趟只存 NP 和秒數，改 FTP 不用重抓串流。
+- **CTL／ATL**：從一年前的 0 開始，每天 `CTL += (TSS − CTL) / 42`、`ATL += (TSS − ATL) / 7`，日界用台北時間。
+- **TSB（狀態）**：今天出門前的狀態＝昨天結束時的 CTL − ATL，今天騎的不算。分級：+5 以上「精神好」、−10～+5「正常」、−30～−10「在累積」、−30 以下「太累了」。PMC 圖下面那條就是每天的 TSB，淡橘色那段是 −10～−30。
+- **CTL 每週變化**：今天結束時的 CTL 減 7 天前。
+- **功率曲線**：5 秒到 2 小時各秒數的最大平均功率，近 6 週（跟 CTL 同樣 42 天）對一年。
+- **心率漂移**：一小時以上、心率有九成以上時間有讀數的騎乘，前後半段各算平均功率 ÷ 平均心率，後半段掉了幾 %。5% 以內代表有氧底子夠。爬坡、間歇課的數字會比較亂，參考就好。
+- **補歷史**：剛接上時要抓一年份的串流。每 15 分鐘最多用 80 次讀取（Strava 上限 100），每次同步只花 8 秒補串流、其餘 5 分鐘後在背景接著補，新的先補。
+- **Strava 的規定**：資料只給自己看、不能用在 AI；Garmin 錶錄的要標示 Garmin，頁面右下角有寫。
 
 ## 本機開發
 
@@ -59,7 +81,7 @@ npm test
 npm run typecheck
 ```
 
-沒設 `GLANCE_TOKEN` 時不檢查金鑰；沒設作業或行事曆的變數，那一塊顯示「–」。
+沒設 `GLANCE_TOKEN` 時不檢查金鑰；沒設作業、行事曆或 Strava 的變數，那一塊顯示「–」。
 
 ## 環境變數
 
@@ -72,6 +94,9 @@ npm run typecheck
 | `DUE_NOW_URL` | | 預設 `https://now.tschool.cc` |
 | `DUE_NOW_TOKEN` | 要顯示作業時 | Due Now 的開發者 API token（`dn_…`），到 Due Now 設定 → 開發者 API 產生，權限選 read 就夠。90 天沒用會失效，看板常駐就不會 |
 | `CALENDAR_ICS_URLS` | 要顯示行事曆時 | 行事曆的「iCal 格式私人網址」，好幾個用逗號分隔。**這串網址就是密碼**，只放在伺服器的環境變數 |
+| `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` | 要顯示騎車時 | 自己的 Strava API App（見下面） |
+| `STRAVA_REFRESH_TOKEN` | 要顯示騎車時 | `scripts/strava-auth.ts` 拿到的。之後 Strava 換發的新 token 存在 `rides.json`，這個變數只有第一次用；重新授權後換掉它，伺服器會改用新的 |
+| `DATA_DIR` | 要顯示騎車時 | 預設 `data`。騎車資料（`rides.json`）放這裡，**要指到會保留的磁碟**：Railway 掛一個 volume（例如掛在 `/data`），這裡填 `/data`。不然每次重新部署就要重補一年份、FTP 也要重填 |
 
 ### 設定 Google 日曆（一次）
 
@@ -99,3 +124,15 @@ npm run typecheck
    - iPhone：Safari 分享 →「加入主畫面」，從主畫面開。**主畫面的 App 跟 Safari 的儲存空間是分開的**，所以第一次從主畫面開時要再貼一次金鑰（就是第 1 步那個框）。
 3. 螢幕不休眠靠 Screen Wake Lock（Android Chrome 84+、iOS Safari 16.4+）。更舊的手機請在系統設定把自動鎖定關掉。
 4. 防烙印：每 3 分鐘整個畫面挪幾個 px（最多 4px）。
+
+### 設定 Strava（一次）
+
+1. Strava 設定 → [My API Application](https://www.strava.com/settings/api) 建一個 App。Authorization Callback Domain 填 `localhost`。
+2. 在自己電腦上跑：
+   ```bash
+   STRAVA_CLIENT_ID=… STRAVA_CLIENT_SECRET=… node scripts/strava-auth.ts
+   ```
+   打開它印出的網址按授權（「查看所有活動資料」要勾）。瀏覽器會跳到打不開的 `http://localhost/?…code=…`，把整串網址貼回終端機。
+3. 把印出來的 refresh token 和 client ID／secret 貼進伺服器的 `STRAVA_REFRESH_TOKEN`、`STRAVA_CLIENT_ID`、`STRAVA_CLIENT_SECRET`。
+4. Railway：glance 服務掛一個 volume，`DATA_DIR` 設成它的掛載路徑。
+5. 打開看板滑到第三頁，點右上角「FTP 未填」填 FTP。剛接上時右上角會寫「補資料中，還有 N 趟」，大概半小時到一小時補完。

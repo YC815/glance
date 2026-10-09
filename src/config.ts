@@ -1,7 +1,8 @@
-// 環境變數。作業與行事曆沒設定就不顯示那一塊，天氣一定有。
+// 環境變數。作業、行事曆、騎車沒設定就不顯示那一塊，天氣一定有。
 
 import type { CalendarConfig } from "./calendar.ts";
 import type { HomeworkConfig } from "./homework.ts";
+import type { StravaConfig } from "./strava.ts";
 import type { WeatherConfig } from "./weather.ts";
 
 export type Config = {
@@ -11,6 +12,9 @@ export type Config = {
   weather: WeatherConfig;
   homework: HomeworkConfig | null;
   calendar: CalendarConfig | null;
+  strava: StravaConfig | null;
+  /** 騎車頁的資料檔（rides.json）放哪；部署時要指到會保留的磁碟 */
+  dataDir: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -25,6 +29,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     .filter(Boolean);
   const calendar: CalendarConfig | null = icsUrls.length > 0 ? { icsUrls } : null;
 
+  const strava =
+    env.STRAVA_CLIENT_ID && env.STRAVA_CLIENT_SECRET && env.STRAVA_REFRESH_TOKEN
+      ? {
+          clientId: env.STRAVA_CLIENT_ID,
+          clientSecret: env.STRAVA_CLIENT_SECRET,
+          refreshToken: env.STRAVA_REFRESH_TOKEN,
+        }
+      : null;
+
   return {
     port: Number(env.PORT) || 3000,
     token: env.GLANCE_TOKEN || null,
@@ -36,5 +49,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     homework,
     calendar,
+    strava,
+    dataDir: env.DATA_DIR || "data",
   };
 }

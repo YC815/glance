@@ -75,6 +75,48 @@
     </div>
   </section>
 
+  <!-- 第三頁：騎車。點「騎車」重抓 Strava，點右上的 FTP 數字改 FTP -->
+  <section class="page">
+    <div class="stage ride-page">
+      <div class="week-head">
+        <button class="week-title" id="ride-refresh" type="button" aria-label="重新同步 Strava">騎車<span class="spinner" aria-hidden="true"></span></button>
+        <div class="week-note"><span class="stale"></span><span class="ride-note" id="ride-note"></span><button class="ftp-btn" id="ftp-btn" type="button" aria-label="修改 FTP">FTP <span class="mono" id="ftp-value">–</span></button></div>
+      </div>
+      <div class="ride-body">
+        <div class="ride-left">
+          <div class="ride-stats">
+            <div class="stat">
+              <div class="stat-label">狀態 TSB</div>
+              <div class="stat-row"><span class="stat-value mono" id="tsb">--</span><span class="pill" id="form-pill" hidden></span></div>
+            </div>
+            <div class="stat">
+              <div class="stat-label"><i class="swatch swatch-ctl"></i>體能 CTL</div>
+              <div class="stat-row"><span class="stat-value mono" id="ctl">--</span><span class="stat-sub mono" id="ramp"></span></div>
+            </div>
+            <div class="stat">
+              <div class="stat-label"><i class="swatch swatch-atl"></i>疲勞 ATL</div>
+              <div class="stat-row"><span class="stat-value mono" id="atl">--</span></div>
+            </div>
+          </div>
+          <div class="ride-chart" id="pmc" role="img" aria-label="最近 90 天的體能、疲勞與狀態"></div>
+        </div>
+        <div class="ride-right">
+          <div class="ride-block-head">
+            <span class="block-title">功率曲線</span>
+            <span class="legend"><i class="swatch swatch-ctl"></i>近 6 週<i class="swatch swatch-year"></i>一年</span>
+          </div>
+          <div class="ride-chart" id="curve" role="img" aria-label="各時間長度的最大平均功率"></div>
+          <div class="ride-block-head">
+            <span class="block-title">心率漂移</span>
+            <span class="legend">1 小時以上，5% 以內＝有氧底子夠</span>
+          </div>
+          <div class="drift" id="drift"></div>
+        </div>
+      </div>
+      <div class="ride-foot">Garmin 裝置記錄 · Powered by Strava</div>
+    </div>
+  </section>
+
 </main>
 
 <!-- 主畫面 App 跟瀏覽器的儲存空間是分開的（iPhone），所以要能在 App 裡直接輸入金鑰 -->
@@ -87,6 +129,16 @@
     <button type="submit" class="key-save">儲存</button>
   </div>
   <p class="key-error" id="key-error"></p>
+</form>
+<form class="key-form" id="ftp-form" hidden>
+  <label class="key-title" for="ftp-input">FTP（瓦）</label>
+  <p class="key-hint">從今天起的騎乘用這個 FTP 算負荷，之前的照舊用當時的。</p>
+  <div class="key-row">
+    <input id="ftp-input" type="number" inputmode="numeric" min="50" max="600" step="1" autocomplete="off" required>
+    <button type="button" id="ftp-cancel">取消</button>
+    <button type="submit" class="key-save">儲存</button>
+  </div>
+  <p class="key-error" id="ftp-error"></p>
 </form>
 <script src="app.js"></script>
 </body>

@@ -20,6 +20,11 @@
   --hw-today: #ff7a6b;
   --hw-soon: #f2c230;
 
+  /* 騎車頁的兩條線（深色底驗過色盲可分） */
+  --ctl: #3d8fe8;
+  --atl: #cf7430;
+  --grid: #1d262c;
+
   /* 由 app.js 設定：畫布縮放與防烙印位移 */
   --scale: 1;
   --shift-x: 0px;
@@ -339,6 +344,94 @@ html, body {
 .day-utci.u2 { color: var(--utci2); }
 .day-utci.u3 { color: var(--utci3); }
 .week-utci-head { font-family: "Noto Sans TC", sans-serif; font-size: 11px; font-weight: 400; color: var(--fg2); }
+
+/* ---------- 第三頁：騎車 ---------- */
+
+.ride-page {
+  padding: 22px 28px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ride-note { margin-right: 12px; }
+.ride-note:empty { display: none; }
+.ftp-btn {
+  /* 看起來就是一行字；點了改 FTP */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ride-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 28px;
+}
+.ride-left, .ride-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.ride-stats { display: flex; gap: 28px; }
+.stat { display: flex; flex-direction: column; gap: 4px; }
+.stat-label { font-size: 13px; color: var(--fg2); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.stat-row { display: flex; align-items: center; gap: 8px; }
+.stat-value { font-size: 34px; font-weight: 600; line-height: 1; }
+.stat-sub { font-size: 13px; color: var(--fg2); }
+.pill.f0 { background: var(--rain1); }
+.pill.f1 { background: var(--utci0); }
+.pill.f2 { background: var(--utci1); }
+.pill.f3 { background: var(--hw-today); }
+
+.swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; font-style: normal; }
+.swatch-ctl { background: var(--ctl); }
+.swatch-atl { background: var(--atl); }
+.swatch-year { background: repeating-linear-gradient(90deg, var(--fg2) 0 3px, transparent 3px 5px); }
+
+.ride-chart { flex: 1 1 0; min-height: 0; position: relative; }
+.ride-chart svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
+.chart-empty { position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--fg2); }
+
+.ride-block-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.legend { font-size: 11px; color: var(--fg2); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.legend .swatch + * { margin-right: 6px; }
+.legend .swatch:not(:first-child) { margin-left: 8px; }
+
+/* 心率漂移：兩欄，每趟一條；5% 那條虛線是分界 */
+.drift { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
+.drift-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.drift-date { width: 34px; flex: 0 0 auto; font-family: "IBM Plex Mono", monospace; color: var(--fg2); }
+.drift-track { position: relative; flex: 1 1 0; height: 8px; border-radius: 0 4px 4px 0; background: var(--grid); }
+.drift-track::after {
+  /* 5% 分界（軸到 15%） */
+  content: "";
+  position: absolute;
+  left: 33.3%;
+  top: -3px;
+  bottom: -3px;
+  border-left: 1px dashed var(--fg2);
+}
+.drift-bar { height: 100%; min-width: 2px; border-radius: 0 4px 4px 0; background: var(--fg2); }
+.drift-bar.high { background: var(--utci1); }
+.drift-pct { width: 40px; flex: 0 0 auto; text-align: right; font-family: "IBM Plex Mono", monospace; }
+.drift-empty { grid-column: 1 / -1; font-size: 12px; color: var(--fg2); }
+
+.ride-foot { font-size: 10px; color: var(--fg2); text-align: right; }
+
+/* SVG 的線與字 */
+.grid { stroke: var(--grid); stroke-width: 1; }
+.l-ctl { fill: none; stroke: var(--ctl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.l-atl { fill: none; stroke: var(--atl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.l-year { fill: none; stroke: var(--fg2); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.l-tsb { fill: none; stroke: var(--fg3); stroke-width: 1.5; stroke-linejoin: round; }
+/* TSB −10～−30：在累積訓練的區間 */
+.tsb-zone { fill: var(--utci1); opacity: 0.12; }
+.dot-ctl { fill: var(--ctl); stroke: var(--bg); stroke-width: 2; }
+.ax { font: 500 10px "IBM Plex Mono", monospace; fill: var(--fg2); }
+.ax-val { font: 600 12px "IBM Plex Mono", monospace; fill: var(--fg); }
 
 /* 輸入金鑰：不跟著畫布縮放，字要夠大（iPhone 輸入框小於 16px 會自動放大畫面） */
 .key-form {

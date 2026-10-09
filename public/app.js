@@ -9,7 +9,7 @@
   var STALE_AFTER_MS = 2.5 * 60 * 1000; // 超過這麼久沒拿到新資料就標「X 分鐘前更新」
   var WEATHER_STALE_MS = 45 * 60 * 1000; // 伺服器那邊天氣太久沒更新也要標
   var SHIFT_EVERY_MS = 3 * 60 * 1000; // 防烙印：每 3 分鐘整個畫面挪一點
-  var BACK_TO_FIRST_MS = 2 * 60 * 1000; // 停在第二頁太久就回常駐頁
+  var BACK_TO_FIRST_MS = 2 * 60 * 1000; // 停在第二、三頁太久就回常駐頁
 
   var TOKEN_KEY = "glance.token";
   var CACHE_KEY = "glance.last";
@@ -223,6 +223,194 @@
     }
   }
 
+  // ---------- 騎車頁 ----------
+
+  var SVG_NS = "http://www.w3.org/2000/svg";
+
+  function svg(tag, attrs, text) {
+    var e = document.createElementNS(SVG_NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  /** 格線間距：1、2、5 × 10 的次方裡，第一個不小於 x 的 */
+  function niceStep(x) {
+    var pow = Math.pow(10, Math.floor(Math.log(x) / Math.LN10));
+    var steps = [1, 2, 5, 10];
+    for (var i = 0; i < steps.length; i++) if (steps[i] * pow >= x) return steps[i] * pow;
+    return 10 * pow;
+  }
+
+  /** 水平格線＋左邊的刻度字（從 low 到 top），回傳 y(v)。`noLowLabel`：最下面那條不寫數字 */
+  function yAxis(root, low, top, step, left, right, plotTop, plotBottom, noLowLabel) {
+    var y = function (v) { return plotTop + (plotBottom - plotTop) * (1 - (v - low) / (top - low)); };
+    for (var v = low; v <= top + 1e-9; v += step) {
+      root.appendChild(svg("line", { x1: left, x2: right, y1: y(v), y2: y(v), "class": "grid" }));
+      if (noLowLabel && v === low) continue;
+      root.appendChild(svg("text", { x: left - 6, y: y(v) + 3, "text-anchor": "end", "class": "ax" }, String(v)));
+    }
+    return y;
+  }
+
+  function pathOf(points) {
+    var d = "";
+    for (var i = 0; i < points.length; i++) d += (i ? "L" : "M") + points[i][0].toFixed(1) + "," + points[i][1].toFixed(1);
+    return d;
+  }
+
+  function chartBox(id, emptyText) {
+    var box = $(id);
+    clear(box);
+    if (emptyText) {
+      box.appendChild(el("div", "chart-empty", emptyText));
+      return null;
+    }
+    var W = box.clientWidth;
+    var H = box.clientHeight;
+    if (!W || !H) return null;
+    var root = svg("svg", { viewBox: "0 0 " + W + " " + H, "aria-hidden": "true" });
+    box.appendChild(root);
+    return { root: root, W: W, H: H };
+  }
+
+  function renderPmc(t) {
+    var empty = !t ? "沒有設定 Strava" : !t.ftp ? "點右上角的 FTP 填一下，才算得出負荷" : null;
+    var c = chartBox("pmc", empty);
+    if (!c) return;
+    var pmc = t.pmc;
+    var max = 10;
+    var tsbMin = -35;
+    var tsbMax = 25;
+    pmc.forEach(function (p) {
+      max = Math.max(max, p.ctl, p.atl);
+      tsbMin = Math.min(tsbMin, p.tsb);
+      tsbMax = Math.max(tsbMax, p.tsb);
+    });
+    var left = 26;
+    var x = function (i) { return left + (i * (c.W - left)) / (pmc.length - 1); };
+
+    // 上面：CTL、ATL（從 0 起）
+    var split = Math.round((c.H - 16) * 0.66);
+    var step = niceStep(max / 3);
+    // 0 不寫：下面 TSB 那條有自己的 0，兩個 0 疊在一起容易看錯
+    var y = yAxis(c.root, 0, Math.ceil(max / step) * step, step, left, c.W, 4, split, true);
+    var atl = [];
+    var ctl = [];
+    pmc.forEach(function (p, i) {
+      atl.push([x(i), y(p.atl)]);
+      ctl.push([x(i), y(p.ctl)]);
+    });
+    c.root.appendChild(svg("path", { d: pathOf(atl), "class": "l-atl" }));
+    c.root.appendChild(svg("path", { d: pathOf(ctl), "class": "l-ctl" }));
+
+    // 下面一條：TSB，共用時間軸。會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，所以分開畫
+    var top2 = split + 14;
+    var bottom2 = c.H - 16;
+    var y2 = function (v) { return top2 + ((tsbMax - v) / (tsbMax - tsbMin)) * (bottom2 - top2); };
+    var zoneTop = y2(Math.min(-10, tsbMax));
+    var zoneBottom = y2(Math.max(-30, tsbMin));
+    c.root.appendChild(svg("rect", { x: left, y: zoneTop, width: c.W - left, height: Math.max(0, zoneBottom - zoneTop), "class": "tsb-zone" }));
+    c.root.appendChild(svg("line", { x1: left, x2: c.W, y1: y2(0), y2: y2(0), "class": "grid" }));
+    c.root.appendChild(svg("text", { x: left - 6, y: y2(0) + 3, "text-anchor": "end", "class": "ax" }, "0"));
+    c.root.appendChild(svg("text", { x: left - 6, y: top2 + 6, "text-anchor": "end", "class": "ax" }, "TSB"));
+    var tsb = [];
+    pmc.forEach(function (p, i) { tsb.push([x(i), y2(p.tsb)]); });
+    c.root.appendChild(svg("path", { d: pathOf(tsb), "class": "l-tsb" }));
+    c.root.appendChild(svg("text", { x: left, y: c.H - 2, "class": "ax" }, t.pmcStart));
+    c.root.appendChild(svg("text", { x: c.W, y: c.H - 2, "text-anchor": "end", "class": "ax" }, "今天"));
+  }
+
+  var CURVE_TICKS = { 5: "5秒", 60: "1分", 300: "5分", 1200: "20分", 3600: "1小時" };
+
+  function renderCurve(t) {
+    var has = t && t.curve.year.some(function (w) { return w !== null; });
+    var c = chartBox("curve", !t ? "沒有設定 Strava" : !has ? (t.pending ? "補資料中…" : "還沒有功率資料") : null);
+    if (!c) return;
+    var d = t.curve.durations;
+    var max = 0;
+    var min = Infinity;
+    t.curve.year.concat(t.curve.recent).forEach(function (w) {
+      if (w !== null) { max = Math.max(max, w); min = Math.min(min, w); }
+    });
+    // 功率曲線不從 0 畫：長時間那端才看得出高低
+    var step = niceStep(Math.max(max - min, 30) / 3);
+    var low = Math.max(0, Math.floor(min / step) * step - step);
+    var left = 30;
+    var right = c.W - 12;
+    var bottom = c.H - 32;
+    var y = yAxis(c.root, low, Math.ceil(max / step) * step, step, left, c.W, 6, bottom);
+    var l0 = Math.log(d[0]);
+    var span = Math.log(d[d.length - 1]) - l0;
+    var x = function (i) { return left + 6 + ((Math.log(d[i]) - l0) / span) * (right - left - 6); };
+    function line(values, cls) {
+      var pts = [];
+      values.forEach(function (w, i) { if (w !== null) pts.push([x(i), y(w)]); });
+      if (pts.length) c.root.appendChild(svg("path", { d: pathOf(pts), "class": cls }));
+      return pts;
+    }
+    line(t.curve.year, "l-year");
+    line(t.curve.recent, "l-ctl").forEach(function (p) {
+      c.root.appendChild(svg("circle", { cx: p[0], cy: p[1], r: 3, "class": "dot-ctl" }));
+    });
+    d.forEach(function (sec, i) {
+      if (!CURVE_TICKS[sec]) return;
+      var w = t.curve.recent[i];
+      c.root.appendChild(svg("text", { x: x(i), y: c.H - 18, "text-anchor": "middle", "class": "ax" }, CURVE_TICKS[sec]));
+      c.root.appendChild(svg("text", { x: x(i), y: c.H - 3, "text-anchor": "middle", "class": "ax-val" }, w === null ? "–" : String(w)));
+    });
+  }
+
+  function renderDrift(t) {
+    var box = $("drift");
+    clear(box);
+    if (!t || !t.drift.length) {
+      box.appendChild(el("div", "drift-empty", t ? "還沒有一小時以上、有心率的騎乘" : "—"));
+      return;
+    }
+    t.drift.forEach(function (r) {
+      var row = el("div", "drift-row");
+      row.appendChild(el("span", "drift-date", r.date));
+      var track = el("div", "drift-track");
+      var bar = el("div", "drift-bar" + (r.pct >= 5 ? " high" : ""));
+      bar.style.width = ((Math.min(Math.max(r.pct, 0), 15) / 15) * 100).toFixed(1) + "%";
+      track.appendChild(bar);
+      row.appendChild(track);
+      row.appendChild(el("span", "drift-pct", r.pct.toFixed(1) + "%"));
+      box.appendChild(row);
+    });
+  }
+
+  function signed(n, digits) {
+    var s = Math.abs(n).toFixed(digits || 0);
+    if (Number(s) === 0) return s;
+    return (n > 0 ? "+" : "−") + s;
+  }
+
+  function renderTraining(t, src) {
+    setText($("ftp-value"), t && t.ftp ? t.ftp + "W" : "未填");
+    var note = "";
+    if (src && src.configured && src.error) note = "Strava 同步失敗";
+    else if (t && t.pending) note = "補資料中，還有 " + t.pending + " 趟";
+    setText($("ride-note"), note);
+
+    setText($("tsb"), t && t.tsb !== null ? signed(t.tsb) : "--");
+    setText($("ctl"), t && t.ctl !== null ? String(Math.round(t.ctl)) : "--");
+    setText($("atl"), t && t.atl !== null ? String(Math.round(t.atl)) : "--");
+    setText($("ramp"), t && t.ramp !== null ? signed(t.ramp, 1) + "/週" : "");
+    var pill = $("form-pill");
+    if (t && t.form) {
+      pill.hidden = false;
+      pill.className = "pill f" + t.form.level;
+      setText(pill, t.form.label);
+    } else {
+      pill.hidden = true;
+    }
+    renderPmc(t);
+    renderCurve(t);
+    renderDrift(t);
+  }
+
   function render() {
     var now = Date.now();
     var d = state.data;
@@ -231,6 +419,7 @@
     renderWeather(d && d.weather);
     renderHomework(d && d.homework);
     renderCalendar(d && d.calendar, now);
+    renderTraining(d && d.training, d && d.sources && d.sources.training);
   }
 
   // ---------- 抓資料 ----------
@@ -249,7 +438,7 @@
     });
   }
 
-  /** force："homework" 或 "weather"，跳過伺服器快取直接重抓那個來源（使用者點了同步） */
+  /** force："homework"、"weather" 或 "training"，跳過伺服器快取直接重抓那個來源（使用者點了同步） */
   function refresh(force) {
     if (fetching) {
       if (force) pendingForce[force] = true;
@@ -330,7 +519,53 @@
     });
   }
 
-  // ---------- 手動同步：點作業數字重抓作業、點「未來一週」重抓天氣 ----------
+  // ---------- 改 FTP：點騎車頁右上角的 FTP 數字 ----------
+
+  var ftpForm = $("ftp-form");
+  var ftpInput = $("ftp-input");
+
+  function closeFtpForm() {
+    ftpInput.blur();
+    ftpForm.hidden = true;
+  }
+
+  $("ftp-btn").addEventListener("click", function () {
+    var t = state.data && state.data.training;
+    ftpInput.value = t && t.ftp ? String(t.ftp) : "";
+    setText($("ftp-error"), "");
+    ftpForm.hidden = false;
+    ftpInput.focus();
+  });
+
+  $("ftp-cancel").addEventListener("click", closeFtpForm);
+
+  ftpForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var watts = Number(ftpInput.value);
+    if (!(watts >= 50 && watts <= 600) || Math.round(watts) !== watts) {
+      setText($("ftp-error"), "FTP 要是 50–600 的整數");
+      return;
+    }
+    var headers = { "Content-Type": "application/json" };
+    var token = load(TOKEN_KEY);
+    if (token) headers.Authorization = "Bearer " + token;
+    fetchWithTimeout("api/ftp", { method: "POST", headers: headers, body: JSON.stringify({ watts: watts }) })
+      .then(function (res) {
+        if (res.status === 401) {
+          closeFtpForm();
+          showKeyForm("金鑰不對，請再貼一次");
+          return;
+        }
+        if (!res.ok) throw new Error(String(res.status));
+        closeFtpForm();
+        refresh();
+      })
+      .catch(function () {
+        setText($("ftp-error"), "存不了，等一下再試");
+      });
+  });
+
+  // ---------- 手動同步：點作業數字重抓作業、點「未來一週」重抓天氣、點「騎車」重抓 Strava ----------
 
   var SYNC_MIN_MS = 700; // 轉圈至少轉這麼久，太快閃一下反而看不出有沒有同步
 
@@ -356,6 +591,7 @@
   var syncers = {
     homework: makeSyncer($("hw"), "homework"),
     weather: makeSyncer($("week-refresh"), "weather"),
+    training: makeSyncer($("ride-refresh"), "training"),
   };
 
   // ---------- 版面：縮放、防烙印、換頁 ----------
@@ -385,8 +621,10 @@
   }, { passive: true });
 
   document.addEventListener("keydown", function (e) {
-    if (e.key === "ArrowRight") pager.scrollTo({ left: pager.clientWidth, behavior: "smooth" });
-    if (e.key === "ArrowLeft") pager.scrollTo({ left: 0, behavior: "smooth" });
+    if (!ftpForm.hidden || !keyForm.hidden) return;
+    var page = Math.round(pager.scrollLeft / pager.clientWidth);
+    if (e.key === "ArrowRight") pager.scrollTo({ left: (page + 1) * pager.clientWidth, behavior: "smooth" });
+    if (e.key === "ArrowLeft") pager.scrollTo({ left: Math.max(0, page - 1) * pager.clientWidth, behavior: "smooth" });
   });
 
   // ---------- 全螢幕、螢幕不休眠 ----------
