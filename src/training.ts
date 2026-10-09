@@ -4,7 +4,7 @@
 // 為什麼每趟只存 NP 和秒數、不存 TSS：TSS 要用「那時候的 FTP」算，FTP 是手填的、會改。
 // 存原料，改 FTP 時不必重抓串流。
 
-import { DAY_MS, monthDay, startOfTaipeiDay } from "./time.ts";
+import { DAY_MS, monthDay, startOfTaipeiDay, taipeiParts } from "./time.ts";
 
 /** 功率曲線取這些秒數的最大平均功率。改了要升 METRICS_VERSION，舊的會重抓串流重算。 */
 export const DURATIONS = [5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 5400, 7200];
@@ -175,8 +175,8 @@ export type TrainingView = {
   /** 最近 PMC_DAYS 天。ctl／atl 是那天結束時的值（最後一格含今天騎的）；
    *  tsb 是那天出門前的狀態（前一天的 CTL − ATL），最後一格就等於上面的 tsb */
   pmc: { ctl: number; atl: number; tsb: number }[];
-  /** PMC 第一天的「10/9」 */
-  pmcStart: string;
+  /** PMC 的日期刻度：每月 1 號和 15 號落在 pmc 第幾格 */
+  pmcTicks: { index: number; label: string }[];
   curve: { durations: number[]; recent: (number | null)[]; year: (number | null)[] };
   /** 最近幾趟一小時以上的心率漂移，新的在前 */
   drift: { date: string; pct: number }[];
@@ -261,11 +261,21 @@ export function buildTrainingView(rides: Ride[], ftpHistory: FtpEntry[], now: nu
     ramp: hasFtp ? round1(ctlByDay[last] - ctlByDay[last - 7]) : null,
     form: tsb === null ? null : formLevel(tsb),
     pmc: hasFtp ? pmc : [],
-    pmcStart: monthDay(today - (PMC_DAYS - 1) * DAY_MS),
+    pmcTicks: pmcTicks(today),
     curve: { durations: DURATIONS, recent, year },
     drift,
     pending,
   };
+}
+
+function pmcTicks(today: number): TrainingView["pmcTicks"] {
+  const ticks: TrainingView["pmcTicks"] = [];
+  for (let i = 0; i < PMC_DAYS; i++) {
+    const day = today - (PMC_DAYS - 1 - i) * DAY_MS;
+    const d = taipeiParts(day).day;
+    if (d === 1 || d === 15) ticks.push({ index: i, label: monthDay(day) });
+  }
+  return ticks;
 }
 
 function round1(x: number): number {

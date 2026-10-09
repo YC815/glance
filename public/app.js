@@ -291,25 +291,18 @@
     var right = c.W - 50;
     var x = function (i) { return left + (i * (right - left)) / (pmc.length - 1); };
 
-    // 上面：CTL、ATL（從 0 起）
-    var split = Math.round((c.H - 16) * 0.55);
-    var step = niceStep(max / 3);
-    // 0 不寫：下面 TSB 那條有自己的 0，兩個 0 疊在一起容易看錯
-    var y = yAxis(c.root, 0, Math.ceil(max / step) * step, step, left, right, 4, split, true);
-    var atl = [];
-    var ctl = [];
-    pmc.forEach(function (p, i) {
-      atl.push([x(i), y(p.atl)]);
-      ctl.push([x(i), y(p.ctl)]);
-    });
-    svg("path", { d: pathOf(atl), "class": "l-atl" }, c.root);
-    svg("path", { d: pathOf(ctl), "class": "l-ctl" }, c.root);
-
-    // 下面一條：TSB，共用時間軸。會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，所以分開畫。
-    // 底色分五區，每區寫上名字（紅綠相鄰，不能只靠顏色）
-    var top2 = split + 14;
+    // 上面畫 CTL、ATL（從 0 起），下面一條畫 TSB。TSB 會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，
+    // 所以分開畫；中間和最下面各留一行寫日期
+    var split = Math.round((c.H - 16) * 0.53);
+    var top2 = split + 20;
     var bottom2 = c.H - 16;
     var y2 = function (v) { return top2 + ((tsbMax - v) / (tsbMax - tsbMin)) * (bottom2 - top2); };
+
+    // 先畫底下的東西（格線、五區底色、日期直線），線最後畫才不會被蓋住
+    var step = niceStep(max / 3);
+    // 0 不寫：下面 TSB 那條有自己的刻度，兩個 0 疊在一起容易看錯
+    var y = yAxis(c.root, 0, Math.ceil(max / step) * step, step, left, right, 4, split, true);
+    // 五區底色，每區在右邊寫上名字（紅綠相鄰，不能只靠顏色）
     FORM_ZONES.forEach(function (z, level) {
       var zTop = y2(Math.min(z[0], tsbMax));
       var zBottom = y2(Math.max(z[1], tsbMin));
@@ -317,15 +310,41 @@
       svg("rect", { x: left, y: zTop, width: right - left, height: zBottom - zTop, "class": "zone f" + level }, c.root);
       if (zBottom - zTop >= 10) axText(c.root, right + 6, (zTop + zBottom) / 2 + 3, z[2], "start", "zone-label");
     });
+    // 左邊的刻度標在五區的分界上（25、5、−10、−30）；0 線只畫不寫，跟 5 太近會疊在一起
+    FORM_ZONES.forEach(function (z) {
+      var v = z[1];
+      if (v > tsbMin && v < tsbMax) axText(c.root, left - 6, y2(v) + 3, v < 0 ? "−" + -v : String(v), "end", "ax");
+    });
     svg("line", { x1: left, x2: right, y1: y2(0), y2: y2(0), "class": "zero" }, c.root);
-    axText(c.root, left - 6, y2(0) + 3, "0", "end", "ax");
-    axText(c.root, left - 6, top2 + 6, "TSB", "end", "ax");
-    var tsb = [];
-    pmc.forEach(function (p, i) { tsb.push([x(i), y2(p.tsb)]); });
-    svg("path", { d: pathOf(tsb), "class": "l-tsb" }, c.root);
-    axText(c.root, left, c.H - 2, t.pmcStart, "start", "ax");
+    // 日期：每月 1 號、15 號一條直線貫穿上下兩張圖，兩張圖下面各寫一次。
+    // 太靠近右端「今天」的只畫線不寫字，免得疊在一起
+    t.pmcTicks.forEach(function (tk) {
+      var tx = x(tk.index);
+      svg("line", { x1: tx, x2: tx, y1: 4, y2: split, "class": "grid" }, c.root);
+      svg("line", { x1: tx, x2: tx, y1: top2, y2: bottom2, "class": "vgrid" }, c.root);
+      if (right - tx < TODAY_CLEAR_PX || tx - left < 10) return;
+      axText(c.root, tx, split + 13, tk.label, "middle", "ax");
+      axText(c.root, tx, c.H - 2, tk.label, "middle", "ax");
+    });
+    axText(c.root, right, split + 13, "今天", "end", "ax");
     axText(c.root, right, c.H - 2, "今天", "end", "ax");
+
+    var atl = [];
+    var ctl = [];
+    var tsb = [];
+    pmc.forEach(function (p, i) {
+      atl.push([x(i), y(p.atl)]);
+      ctl.push([x(i), y(p.ctl)]);
+      tsb.push([x(i), y2(p.tsb)]);
+    });
+    svg("path", { d: pathOf(atl), "class": "l-atl" }, c.root);
+    svg("path", { d: pathOf(ctl), "class": "l-ctl" }, c.root);
+    svg("path", { d: pathOf(tsb), "class": "l-tsb" }, c.root);
   }
+
+
+  /** 日期刻度中心離「今天」至少這麼遠才寫字（「今天」寬約 20px、「10/15」半寬約 14px） */
+  var TODAY_CLEAR_PX = 40;
 
   /** TSB 五區 [上限, 下限, 名稱]，跟 src/training.ts 的 formLevel 同一組門檻；索引就是 level */
   var FORM_ZONES = [

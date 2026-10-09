@@ -114,7 +114,13 @@ test("PMC：每天 100 TSS 騎 42 天，CTL 約 64；TSB 用昨天結束時的�
   // 今天還沒騎：今天結束時的值會往下掉
   assert.ok(v.pmc[89].ctl < v.ctl!);
   assert.equal(v.pmc[89].tsb, v.tsb, "圖上最後一天的 TSB＝上面的大數字");
-  assert.equal(v.pmcStart, "7/12");
+  // 90 天從 7/12 到 10/9：每月 1 號、15 號一個刻度
+  assert.deepEqual(
+    v.pmcTicks.map((t) => t.label),
+    ["7/15", "8/1", "8/15", "9/1", "9/15", "10/1"],
+  );
+  assert.equal(v.pmcTicks[0].index, 3);
+  assert.equal(v.pmcTicks[5].index, 81);
 });
 
 test("沒填 FTP：PMC 全空，功率曲線和心率漂移照樣有", () => {
@@ -136,6 +142,11 @@ test("沒填 FTP：PMC 全空，功率曲線和心率漂移照樣有", () => {
   assert.equal(v.ctl, null);
   assert.equal(v.form, null);
   assert.deepEqual(v.pmc, []);
+  assert.deepEqual(
+    buildTrainingView([], [], tp("2026-11-01T08:00:00")).pmcTicks.map((t) => t.label).slice(-2),
+    ["10/15", "11/1"],
+    "今天剛好 1 號也算",
+  );
   assert.equal(v.curve.recent[0], 400);
   assert.equal(v.curve.year[0], 420, "一年內最好的是六月那趟");
   assert.equal(v.curve.recent[DURATIONS.indexOf(5400)], null);

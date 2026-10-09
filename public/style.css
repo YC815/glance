@@ -519,6 +519,7 @@ html, body {
 
 /* SVG 的線與字（限定在騎車頁，不影響 UTCI 折線圖） */
 .ride-chart .grid { stroke: var(--grid); stroke-width: 1; }
+.ride-chart .vgrid { stroke: var(--bg); stroke-width: 1; opacity: 0.6; }
 .ride-chart .zero { stroke: var(--fg2); stroke-width: 1; opacity: 0.5; }
 .ride-chart .l-ctl { fill: none; stroke: var(--ctl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .ride-chart .l-atl { fill: none; stroke: var(--atl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
