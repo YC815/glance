@@ -1,20 +1,16 @@
-// Google Calendar：用服務帳戶讀今天與明天的行程。
+// Google 日曆：讀「iCal 格式的私人網址」（設定 → 整合日曆），伺服器端抓、解析、展開重複行程。
 //
-// 為什麼用服務帳戶而不是 OAuth：OAuth 用戶端在「測試中」狀態時 refresh token 7 天就失效，
-// 常駐看板會三不五時斷掉。服務帳戶只要把行事曆分享給它的 email（「查看所有活動詳細資料」）就能讀，
-// 金鑰不會過期。JWT 用 node:crypto 自己簽，不必拉 googleapis 整包進來。
+// 為什麼不用 Calendar API：學校 Workspace 帳號多半不准把行事曆分享給外部的服務帳戶，
+// OAuth 用戶端在「測試中」狀態 refresh token 又 7 天就失效。私人 iCal 網址開得出來就能用、不會過期。
+// 這串網址等於整個行事曆的唯讀鑰匙：只放在伺服器的環境變數，錯誤訊息與日誌都不能帶到它。
 
-import { createSign } from "node:crypto";
-import { DAY_MS, hhmm, startOfTaipeiDay } from "./time.ts";
+import ICAL from "ical.js";
+import { DAY_MS, TZ_OFFSET_MS, hhmm, startOfTaipeiDay } from "./time.ts";
 
-export type CalendarConfig = {
-  clientEmail: string;
-  privateKey: string;
-  calendarIds: string[];
-};
+export type CalendarConfig = { icsUrls: string[] };
 
 export type CalEvent = {
-  /** 「09:30」或「整天」 */
+  /** 「09:30」「整天」或「延續」（昨天開始、今天還沒結束） */
   time: string;
   title: string;
   start: number;
@@ -24,125 +20,134 @@ export type CalEvent = {
 
 export type CalendarView = { today: CalEvent[]; tomorrow: CalEvent[] };
 
-/** 從服務帳戶金鑰 JSON 字串讀出需要的欄位。 */
-export function parseServiceAccount(json: string): { clientEmail: string; privateKey: string } {
-  const key = JSON.parse(json) as { client_email?: string; private_key?: string };
-  if (!key.client_email || !key.private_key) {
-    throw new Error("服務帳戶金鑰缺少 client_email 或 private_key");
-  }
-  return { clientEmail: key.client_email, privateKey: key.private_key };
-}
+/** 展開後的一次行程（還沒分今天明天）。 */
+export type Occurrence = Omit<CalEvent, "time">;
 
-const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
+/** 重複行程最多展開幾次，防止很久以前開始的每日行程跑太久 */
+const MAX_ITERATIONS = 20_000;
 
-let tokenCache: { token: string; expiresAt: number; email: string } | null = null;
-
-function base64url(input: string | Buffer): string {
-  return Buffer.from(input).toString("base64url");
-}
-
-export function signJwt(clientEmail: string, privateKey: string, nowSec: number): string {
-  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claims = base64url(
-    JSON.stringify({ iss: clientEmail, scope: SCOPE, aud: TOKEN_URL, iat: nowSec, exp: nowSec + 3600 }),
-  );
-  const signer = createSign("RSA-SHA256");
-  signer.update(`${header}.${claims}`);
-  return `${header}.${claims}.${base64url(signer.sign(privateKey))}`;
-}
-
-async function accessToken(cfg: CalendarConfig): Promise<string> {
-  const now = Date.now();
-  if (tokenCache && tokenCache.email === cfg.clientEmail && tokenCache.expiresAt - 60_000 > now) {
-    return tokenCache.token;
-  }
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: signJwt(cfg.clientEmail, cfg.privateKey, Math.floor(now / 1000)),
-    }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new Error(`Google token ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json = (await res.json()) as { access_token: string; expires_in: number };
-  tokenCache = {
-    token: json.access_token,
-    expiresAt: now + json.expires_in * 1000,
-    email: cfg.clientEmail,
-  };
-  return json.access_token;
-}
-
-type GoogleEvent = {
-  status?: string;
-  summary?: string;
-  start?: { date?: string; dateTime?: string };
-  end?: { date?: string; dateTime?: string };
-};
+// Google 匯出的 .ics 會附 VTIMEZONE；萬一沒附，至少 Asia/Taipei 要認得（固定 +08:00，沒有日光節約）。
+const TAIPEI_VTIMEZONE = [
+  "BEGIN:VTIMEZONE",
+  "TZID:Asia/Taipei",
+  "BEGIN:STANDARD",
+  "TZOFFSETFROM:+0800",
+  "TZOFFSETTO:+0800",
+  "TZNAME:CST",
+  "DTSTART:19700101T000000",
+  "END:STANDARD",
+  "END:VTIMEZONE",
+].join("\r\n");
 
 export async function fetchCalendar(cfg: CalendarConfig, now = Date.now()): Promise<CalendarView> {
-  const token = await accessToken(cfg);
-  const today = startOfTaipeiDay(now);
-  const params = new URLSearchParams({
-    timeMin: new Date(today).toISOString(),
-    timeMax: new Date(today + 2 * DAY_MS).toISOString(),
-    singleEvents: "true",
-    orderBy: "startTime",
-    maxResults: "100",
-  });
-  const lists = await Promise.all(
-    cfg.calendarIds.map(async (id) => {
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events?${params}`;
-      const res = await fetch(url, {
-        headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!res.ok) {
-        throw new Error(`Google Calendar ${id} ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      }
-      return ((await res.json()) as { items?: GoogleEvent[] }).items ?? [];
+  const texts = await Promise.all(
+    cfg.icsUrls.map(async (url, i) => {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      // 不能把網址放進錯誤訊息：它就是密碼
+      if (!res.ok) throw new Error(`iCal #${i + 1} 回應 ${res.status}`);
+      return res.text();
     }),
   );
-  return groupEvents(lists.flat(), now);
+  const today = startOfTaipeiDay(now);
+  const occurrences = texts.flatMap((text) => expandIcs(text, today, today + 2 * DAY_MS));
+  return groupEvents(occurrences, now);
 }
 
-/** 全天活動的日期（YYYY-MM-DD）是台北的日子。 */
-function taipeiDate(date: string): number {
-  return Date.parse(`${date}T00:00:00+08:00`);
+/** ICAL.Time → epoch ms。全天與「浮動時間」（沒標時區）都當台北時間。 */
+function toMs(t: ICAL.Time): number {
+  if (t.isDate) return Date.UTC(t.year, t.month - 1, t.day) - TZ_OFFSET_MS;
+  if (!t.zone || t.zone.tzid === "floating") {
+    return Date.UTC(t.year, t.month - 1, t.day, t.hour, t.minute, t.second) - TZ_OFFSET_MS;
+  }
+  return t.toJSDate().getTime();
 }
 
-export function normalizeEvent(e: GoogleEvent): Omit<CalEvent, "time"> | null {
-  if (e.status === "cancelled") return null;
-  const title = e.summary?.trim() || "（沒有標題）";
-  if (e.start?.dateTime && e.end?.dateTime) {
-    return { title, start: Date.parse(e.start.dateTime), end: Date.parse(e.end.dateTime), allDay: false };
+function occurrence(title: string, start: ICAL.Time, end: ICAL.Time | null): Occurrence {
+  const allDay = start.isDate;
+  const s = toMs(start);
+  let e = end ? toMs(end) : s;
+  // 沒有 DTEND：全天的算一天，計時的算一個時間點
+  if (e <= s && allDay) e = s + DAY_MS;
+  return { title, start: s, end: e, allDay };
+}
+
+const isCancelled = (c: ICAL.Component) =>
+  String(c.getFirstPropertyValue("status") ?? "").toUpperCase() === "CANCELLED";
+
+/** 解析一份 .ics，回傳跟 [from, to) 重疊的每一次行程（重複行程已展開、例外已套用）。 */
+export function expandIcs(text: string, from: number, to: number): Occurrence[] {
+  const root = new ICAL.Component(ICAL.parse(text));
+  for (const vtz of root.getAllSubcomponents("vtimezone")) ICAL.TimezoneService.register(vtz);
+  if (!ICAL.TimezoneService.has("Asia/Taipei")) {
+    ICAL.TimezoneService.register(new ICAL.Component(ICAL.parse(TAIPEI_VTIMEZONE)));
   }
-  if (e.start?.date && e.end?.date) {
-    return { title, start: taipeiDate(e.start.date), end: taipeiDate(e.end.date), allDay: true };
+
+  // 同一個 UID：沒有 RECURRENCE-ID 的是本體，有的是某一次被改過的例外
+  const masters = new Map<string, ICAL.Component>();
+  const exceptions = new Map<string, ICAL.Component[]>();
+  for (const c of root.getAllSubcomponents("vevent")) {
+    const uid = String(c.getFirstPropertyValue("uid") ?? "");
+    if (c.hasProperty("recurrence-id")) {
+      exceptions.set(uid, [...(exceptions.get(uid) ?? []), c]);
+    } else {
+      masters.set(uid || `__${masters.size}`, c);
+    }
   }
-  return null;
+
+  const out: Occurrence[] = [];
+  const overlaps = (o: Occurrence) => o.start < to && (o.end > from || (o.end === o.start && o.start >= from));
+
+  for (const [uid, comp] of masters) {
+    if (isCancelled(comp)) continue;
+    const event = new ICAL.Event(comp, { exceptions: exceptions.get(uid) ?? [], strictExceptions: false });
+    const title = event.summary?.trim() || "（沒有標題）";
+
+    if (!event.isRecurring()) {
+      const o = occurrence(title, event.startDate, event.endDate);
+      if (overlaps(o)) out.push(o);
+      continue;
+    }
+
+    const it = event.iterator();
+    for (let i = 0, next = it.next(); next && i < MAX_ITERATIONS; i++, next = it.next()) {
+      if (toMs(next) >= to) break;
+      const d = event.getOccurrenceDetails(next);
+      if (isCancelled(d.item.component)) continue;
+      const o = occurrence(d.item.summary?.trim() || title, d.startDate, d.endDate);
+      if (overlaps(o)) out.push(o);
+    }
+  }
+
+  // 被移到視窗內、但本體已經不在 .ics 裡的孤兒例外（少見）
+  for (const [uid, list] of exceptions) {
+    if (masters.has(uid)) continue;
+    for (const c of list) {
+      if (isCancelled(c)) continue;
+      const e = new ICAL.Event(c);
+      const o = occurrence(e.summary?.trim() || "（沒有標題）", e.startDate, e.endDate);
+      if (overlaps(o)) out.push(o);
+    }
+  }
+  return out;
 }
 
 /** 分成今天、明天。跨日的全天活動兩天都列；計時活動放在開始那天（昨天開始、今天還沒結束的放今天）。 */
-export function groupEvents(items: GoogleEvent[], now: number): CalendarView {
+export function groupEvents(items: Occurrence[], now: number): CalendarView {
   const today = startOfTaipeiDay(now);
   const tomorrow = today + DAY_MS;
   const out: CalendarView = { today: [], tomorrow: [] };
 
-  for (const raw of items) {
-    const e = normalizeEvent(raw);
-    if (!e) continue;
+  for (const e of items) {
     const overlaps = (from: number) => e.start < from + DAY_MS && e.end > from;
     if (e.allDay) {
       if (overlaps(today)) out.today.push({ ...e, time: "整天" });
       if (overlaps(tomorrow)) out.tomorrow.push({ ...e, time: "整天" });
     } else if (e.start >= tomorrow && e.start < tomorrow + DAY_MS) {
       out.tomorrow.push({ ...e, time: hhmm(e.start) });
-    } else if (overlaps(today)) {
-      out.today.push({ ...e, time: e.start < today ? "延續" : hhmm(e.start) });
+    } else if (e.start >= today && e.start < tomorrow) {
+      out.today.push({ ...e, time: hhmm(e.start) });
+    } else if (e.start < today && e.end > today) {
+      out.today.push({ ...e, time: "延續" });
     }
   }
   // 全天的排前面，其餘照開始時間

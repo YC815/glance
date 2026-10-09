@@ -16,5 +16,8 @@
   "devDependencies": {
     "@types/node": "^22.18.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "ical.js": "^2.2.1"
   }
 }

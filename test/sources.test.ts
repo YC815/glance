@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync, createVerify } from "node:crypto";
 import { test } from "node:test";
 import { authorized } from "../src/auth.ts";
 import { CachedSource } from "../src/cache.ts";
 import { parseRefresh } from "../src/glance.ts";
-import { groupEvents, parseServiceAccount, signJwt } from "../src/calendar.ts";
 import { countHomework } from "../src/homework.ts";
 import { openMeteoUrl, parseForecast } from "../src/weather.ts";
 
@@ -43,46 +41,6 @@ test("解析 Open-Meteo：中午有太陽時 UTCI 比氣溫高，晚上接近氣
   assert.equal(hours[1].precip, 1.2);
   assert.equal(hours[2].precip, null);
   assert.equal(hours[2].utci, null);
-});
-
-test("行事曆：分今天明天、全天活動排前面、取消的不列", () => {
-  const now = tp("2026-10-08T21:00:00");
-  const view = groupEvents(
-    [
-      { summary: "專題討論", start: { dateTime: "2026-10-08T22:00:00+08:00" }, end: { dateTime: "2026-10-08T23:00:00+08:00" } },
-      { summary: "社團課", start: { dateTime: "2026-10-08T19:00:00+08:00" }, end: { dateTime: "2026-10-08T20:30:00+08:00" } },
-      { summary: "第一節課", start: { dateTime: "2026-10-09T00:10:00Z" }, end: { dateTime: "2026-10-09T01:00:00Z" } },
-      { summary: "校慶", start: { date: "2026-10-08" }, end: { date: "2026-10-10" } },
-      { summary: "取消了", status: "cancelled", start: { dateTime: "2026-10-09T10:00:00+08:00" }, end: { dateTime: "2026-10-09T11:00:00+08:00" } },
-      { start: { dateTime: "2026-10-09T13:30:00+08:00" }, end: { dateTime: "2026-10-09T14:00:00+08:00" } },
-    ],
-    now,
-  );
-  assert.deepEqual(
-    view.today.map((e) => `${e.time} ${e.title}`),
-    ["整天 校慶", "19:00 社團課", "22:00 專題討論"],
-  );
-  assert.deepEqual(
-    view.tomorrow.map((e) => `${e.time} ${e.title}`),
-    ["整天 校慶", "08:10 第一節課", "13:30 （沒有標題）"],
-  );
-  assert.equal(view.today[1].end, tp("2026-10-08T20:30:00"));
-});
-
-test("服務帳戶 JWT 用 RS256 簽、對得起來", () => {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-  const sa = parseServiceAccount(JSON.stringify({ client_email: "x@y.iam.gserviceaccount.com", private_key: pem }));
-  const jwt = signJwt(sa.clientEmail, sa.privateKey, 1_700_000_000);
-  const [h, c, sig] = jwt.split(".");
-  const claims = JSON.parse(Buffer.from(c, "base64url").toString());
-  assert.equal(claims.iss, "x@y.iam.gserviceaccount.com");
-  assert.equal(claims.exp - claims.iat, 3600);
-  assert.match(claims.scope, /calendar\.readonly$/);
-  const v = createVerify("RSA-SHA256");
-  v.update(`${h}.${c}`);
-  assert.ok(v.verify(publicKey, Buffer.from(sig, "base64url")));
-  assert.throws(() => parseServiceAccount("{}"));
 });
 
 test("作業：只數沒過截止的；今天＝到明天 00:00，三天內＝今明後三個日曆天含今天", () => {

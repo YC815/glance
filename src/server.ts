@@ -1,4 +1,4 @@
-// 一支 API（/api/glance）＋ public/ 的靜態檔。沒有框架，零相依。
+// 一支 API（/api/glance）＋ public/ 的靜態檔。沒有框架。
 
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -24,7 +24,7 @@ const glance = createGlance(cfg);
 
 if (!cfg.token) console.warn("[glance] 沒有設定 GLANCE_TOKEN，任何人都能讀 /api/glance");
 if (!cfg.homework) console.warn("[glance] 沒有設定 DUE_NOW_TOKEN，不顯示作業");
-if (!cfg.calendar) console.warn("[glance] 沒有設定 GOOGLE_SERVICE_ACCOUNT_JSON／GOOGLE_CALENDAR_IDS，不顯示行事曆");
+if (!cfg.calendar) console.warn("[glance] 沒有設定 CALENDAR_ICS_URLS，不顯示行事曆");
 
 function send(res: ServerResponse, status: number, body: string | Buffer, type: string, extra = {}) {
   res.writeHead(status, { "content-type": type, ...extra });

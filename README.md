@@ -9,14 +9,14 @@
 ## 架構
 
 後端一支 API（`GET /api/glance`）把三個來源整理好一次回傳，手機只負責顯示。
-Node 22.18 以上直接跑 TypeScript（型別剝除），**沒有任何執行期相依、不用 build**。
+Node 22.18 以上直接跑 TypeScript（型別剝除），**不用 build**；執行期只有一個相依：解析 iCal 的 `ical.js`（Mozilla，本身零相依）。
 
 | 來源 | 做法 | 伺服器快取 |
 |---|---|---|
 | 天氣 | Open-Meteo，ECMWF 模式（預設 `ecmwf_ifs025`），逐小時雨量、氣溫、濕度、風速、日射量 | 15 分鐘；第二頁點「未來一週」可立刻重抓 |
 | UTCI | 自己算：`src/utci.ts`（照抄 pythermalcomfort 的多項式），平均輻射溫度用日射量估（`src/mrt.ts`，ASHRAE SolarCal） | 跟天氣一起 |
 | 作業 | Due Now 開發者 API：抓未完成作業清單，自己數「今天」「三天內」 | 5 分鐘；點看板上的作業數字可立刻重抓 |
-| 行事曆 | Google Calendar API，服務帳戶唯讀，今天＋明天 | 5 分鐘 |
+| 行事曆 | Google 日曆的「iCal 格式私人網址」，伺服器端解析、展開重複行程，今天＋明天 | 5 分鐘 |
 
 某個來源抓失敗時，繼續回上一筆成功的資料，並在 `sources` 裡附上錯誤與最後更新時間。
 手機每分鐘來拿一次（伺服器有快取，不會多打外部服務）；拿不到就顯示最後一筆並標「X 分鐘前更新」。
@@ -30,7 +30,7 @@ src/
   utci.ts      UTCI 與熱壓力分級
   mrt.ts       日射量 → 平均輻射溫度
   solar.ts     太陽高度角
-  calendar.ts  Google Calendar（服務帳戶 JWT）
+  calendar.ts  Google 日曆（私人 iCal 網址）
   homework.ts  Due Now
   cache.ts     每個來源的快取與失敗沿用
 public/        前端（不打包的純 JS）、service worker、manifest
@@ -71,19 +71,19 @@ npm run typecheck
 | `OPEN_METEO_MODEL` | | 預設 `ecmwf_ifs025` |
 | `DUE_NOW_URL` | | 預設 `https://now.tschool.cc` |
 | `DUE_NOW_TOKEN` | 要顯示作業時 | Due Now 的開發者 API token（`dn_…`），到 Due Now 設定 → 開發者 API 產生，權限選 read 就夠。90 天沒用會失效，看板常駐就不會 |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | 要顯示行事曆時 | 服務帳戶金鑰 JSON 整串 |
-| `GOOGLE_CALENDAR_IDS` | 要顯示行事曆時 | 逗號分隔；個人主行事曆的 ID 就是你的 Gmail 地址 |
+| `CALENDAR_ICS_URLS` | 要顯示行事曆時 | 行事曆的「iCal 格式私人網址」，好幾個用逗號分隔。**這串網址就是密碼**，只放在伺服器的環境變數 |
 
-### 設定 Google Calendar（一次）
+### 設定 Google 日曆（一次）
 
-為什麼不用 OAuth：用戶端在「測試中」狀態時 refresh token 7 天就失效，常駐看板會三不五時斷掉。
+1. Google 日曆 → 右上齒輪「設定」→ 左邊點要顯示的行事曆 →「整合日曆」。
+2. 複製「iCal 格式的私人網址」（`https://calendar.google.com/calendar/ical/…/private-…/basic.ics`）。
+3. 貼進伺服器的 `CALENDAR_ICS_URLS`（Railway：glance 服務 → Variables）。不要放進前端、不要 commit、不要貼到聊天或 issue。
+4. 外洩了就回到同一頁按「重設」，舊網址立刻失效，再把新網址換進去。
 
-1. Google Cloud Console 開一個專案，啟用「Google Calendar API」。
-2. 「IAM 與管理 → 服務帳戶」建立一個服務帳戶，在「金鑰」新增 JSON 金鑰並下載。
-3. 到 Google 日曆 →（要顯示的行事曆）設定與共用 →「與特定使用者共用」→ 加入服務帳戶的 email，權限選「查看所有活動詳細資料」。
-4. 把 JSON 檔內容整串放進 `GOOGLE_SERVICE_ACCOUNT_JSON`，行事曆 ID 放進 `GOOGLE_CALENDAR_IDS`。
+為什麼不用 Calendar API：學校 Workspace 帳號多半不准分享給外部的服務帳戶；OAuth 用戶端在「測試中」狀態 refresh token 7 天就失效。
+私人 iCal 網址也不能給前端直接抓：Google 沒開 CORS，而且等於把行事曆的鑰匙公開。
 
-學校的 Workspace 帳號可能不允許分享給外部帳號，那就用個人帳號的行事曆。
+重複行程、改期、單次取消、排除日期都會照 .ics 正確展開。
 
 ## 部署
 

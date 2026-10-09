@@ -1,6 +1,6 @@
 // 環境變數。作業與行事曆沒設定就不顯示那一塊，天氣一定有。
 
-import { parseServiceAccount, type CalendarConfig } from "./calendar.ts";
+import type { CalendarConfig } from "./calendar.ts";
 import type { HomeworkConfig } from "./homework.ts";
 import type { WeatherConfig } from "./weather.ts";
 
@@ -18,14 +18,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ? { baseUrl: env.DUE_NOW_URL || "https://now.tschool.cc", token: env.DUE_NOW_TOKEN }
     : null;
 
-  let calendar: CalendarConfig | null = null;
-  const calendarIds = (env.GOOGLE_CALENDAR_IDS ?? "")
+  // 逗號分隔，可以放好幾個行事曆的私人 iCal 網址
+  const icsUrls = (env.CALENDAR_ICS_URLS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (env.GOOGLE_SERVICE_ACCOUNT_JSON && calendarIds.length > 0) {
-    calendar = { ...parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON), calendarIds };
-  }
+  const calendar: CalendarConfig | null = icsUrls.length > 0 ? { icsUrls } : null;
 
   return {
     port: Number(env.PORT) || 3000,
