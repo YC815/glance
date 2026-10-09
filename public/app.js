@@ -115,7 +115,7 @@
   function renderWeather(w) {
     if (!w) {
       setText($("headline"), state.unauthorized ? "需要金鑰" : "還沒有天氣資料");
-      setText($("summary"), state.unauthorized ? "用「網址/#k=金鑰」開一次就會記住" : "");
+      setText($("summary"), state.unauthorized ? "在跳出來的框裡貼上金鑰" : "");
       return;
     }
     setText($("headline"), w.headline);
@@ -263,6 +263,7 @@
       .then(function (res) {
         if (res.status === 401) {
           state.unauthorized = true;
+          showKeyForm(load(TOKEN_KEY) ? "金鑰不對，請再貼一次" : "");
           throw new Error("401");
         }
         if (!res.ok) throw new Error(String(res.status));
@@ -285,6 +286,48 @@
           return;
         }
       });
+  }
+
+  // ---------- 輸入金鑰 ----------
+  // 加入主畫面的 App（尤其 iPhone）跟瀏覽器的儲存空間分開，網址帶的金鑰過不去，所以在這裡讓人貼。
+
+  var keyForm = $("key-form");
+  var keyInput = $("key-input");
+  var keyPaste = $("key-paste");
+
+  /** 貼的可能是金鑰本身，也可能是整串「…/#k=金鑰」網址 */
+  function extractKey(text) {
+    var m = String(text).match(/[#&?]k=([^&\s]+)/);
+    return (m ? decodeURIComponent(m[1]) : String(text)).trim();
+  }
+
+  function showKeyForm(error) {
+    setText($("key-error"), error || "");
+    if (keyForm.hidden) {
+      keyForm.hidden = false;
+      keyInput.value = "";
+    }
+  }
+
+  keyForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var key = extractKey(keyInput.value);
+    if (!key) return;
+    save(TOKEN_KEY, key);
+    keyInput.blur();
+    keyForm.hidden = true;
+    refresh();
+  });
+
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    keyPaste.hidden = false;
+    keyPaste.addEventListener("click", function () {
+      navigator.clipboard.readText().then(function (text) {
+        keyInput.value = extractKey(text);
+      }).catch(function () {
+        setText($("key-error"), "讀不到剪貼簿，請長按輸入框貼上");
+      });
+    });
   }
 
   // ---------- 手動同步：點作業數字重抓作業、點「未來一週」重抓天氣 ----------

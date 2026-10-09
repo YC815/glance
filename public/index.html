@@ -76,6 +76,18 @@
   </section>
 
 </main>
+
+<!-- 主畫面 App 跟瀏覽器的儲存空間是分開的（iPhone），所以要能在 App 裡直接輸入金鑰 -->
+<form class="key-form" id="key-form" hidden>
+  <label class="key-title" for="key-input">輸入看板金鑰</label>
+  <p class="key-hint">這支手機第一次打開、或金鑰換過時才需要。貼上金鑰或整串網址都可以。</p>
+  <div class="key-row">
+    <input id="key-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <button type="button" id="key-paste" hidden>貼上</button>
+    <button type="submit" class="key-save">儲存</button>
+  </div>
+  <p class="key-error" id="key-error"></p>
+</form>
 <script src="app.js"></script>
 </body>
 </html>

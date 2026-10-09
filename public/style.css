@@ -340,5 +340,44 @@ html, body {
 .day-utci.u3 { color: var(--utci3); }
 .week-utci-head { font-family: "Noto Sans TC", sans-serif; font-size: 11px; font-weight: 400; color: var(--fg2); }
 
-/* 沒有金鑰或第一次載入失敗時的提示 */
-.notice { color: var(--fg2); }
+/* 輸入金鑰：不跟著畫布縮放，字要夠大（iPhone 輸入框小於 16px 會自動放大畫面） */
+.key-form {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
+  background: var(--bg);
+}
+.key-form[hidden] { display: none; }
+.key-title { font-size: 20px; font-weight: 900; }
+.key-hint { margin: 0; font-size: 14px; color: var(--fg2); }
+.key-row { display: flex; gap: 8px; max-width: 640px; }
+.key-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 16px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  background: #151c20;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.key-row button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 16px;
+  font: 700 16px "Noto Sans TC", sans-serif;
+  color: var(--fg);
+  background: #151c20;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.key-row .key-save { color: #06202e; background: var(--rain1); border-color: var(--rain1); }
+.key-error { margin: 0; min-height: 1.4em; font-size: 14px; color: var(--hw-today); }
