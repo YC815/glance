@@ -24,6 +24,15 @@ export type GlancePayload = {
 /** 給前端的行程：結束時間用來把已經過去的畫淡。 */
 export type ClientEvent = { time: string; title: string; end: number };
 
+/** 使用者手動要求跳過快取重抓的來源：點作業數字、點「未來一週」 */
+export type RefreshTarget = "homework" | "weather";
+
+export function parseRefresh(param: string | null): RefreshTarget[] {
+  return (param ?? "")
+    .split(",")
+    .filter((s): s is RefreshTarget => s === "homework" || s === "weather");
+}
+
 export function createGlance(cfg: Config) {
   const weather = new CachedSource<Forecast>(15 * MINUTE, async () => {
     const forecast = await fetchForecast(cfg.weather);
@@ -31,7 +40,7 @@ export function createGlance(cfg: Config) {
     return forecast;
   });
   const homework = cfg.homework
-    ? // 平常 5 分鐘；在 Due Now 勾完成後可以點看板上的數字強制重抓（refreshHomework）
+    ? // 平常 5 分鐘；在 Due Now 勾完成後可以點看板上的數字強制重抓
       new CachedSource<Homework>(5 * MINUTE, () => fetchHomework(cfg.homework!))
     : null;
   const calendar = cfg.calendar
@@ -40,11 +49,12 @@ export function createGlance(cfg: Config) {
 
   return async function glance(
     now = Date.now(),
-    opts: { refreshHomework?: boolean } = {},
+    opts: { refresh?: RefreshTarget[] } = {},
   ): Promise<GlancePayload> {
+    const force = (target: RefreshTarget) => opts.refresh?.includes(target) ?? false;
     const [w, h, c] = await Promise.all([
-      weather.get(now),
-      homework?.get(now, opts.refreshHomework) ?? null,
+      weather.get(now, force("weather")),
+      homework?.get(now, force("homework")) ?? null,
       calendar?.get(now) ?? null,
     ]);
     const cal = c?.value ?? null;

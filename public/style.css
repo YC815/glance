@@ -272,7 +272,30 @@ html, body {
   gap: 10px;
 }
 .week-head { display: flex; justify-content: space-between; align-items: baseline; }
-.week-title { font-size: 20px; font-weight: 900; }
+.week-title {
+  /* 點了重抓天氣 */
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--fg2);
+  border-radius: 50%;
+}
+.week-title.syncing .spinner { display: inline-block; animation: spin 0.9s linear infinite; }
 .week-note { font-size: 12px; color: var(--fg2); }
 .week-note .stale { margin-right: 12px; }
 

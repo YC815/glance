@@ -236,7 +236,7 @@
   // ---------- 抓資料 ----------
 
   var fetching = false;
-  var pendingForce = false;
+  var pendingForce = {}; // 等手上這次結束再補的強制重抓：{ homework: true, weather: true }
   var FETCH_TIMEOUT_MS = 20 * 1000;
 
   function fetchWithTimeout(url, options) {
@@ -249,17 +249,17 @@
     });
   }
 
-  /** forceHomework：跳過伺服器快取，直接問 Due Now（使用者點了作業數字） */
-  function refresh(forceHomework) {
+  /** force："homework" 或 "weather"，跳過伺服器快取直接重抓那個來源（使用者點了同步） */
+  function refresh(force) {
     if (fetching) {
-      if (forceHomework) pendingForce = true; // 等手上這次結束再補一次強制的
+      if (force) pendingForce[force] = true;
       return;
     }
     fetching = true;
     var headers = {};
     var token = load(TOKEN_KEY);
     if (token) headers.Authorization = "Bearer " + token;
-    fetchWithTimeout("api/glance" + (forceHomework ? "?refresh=homework" : ""), { headers: headers, cache: "no-store" })
+    fetchWithTimeout("api/glance" + (force ? "?refresh=" + force : ""), { headers: headers, cache: "no-store" })
       .then(function (res) {
         if (res.status === 401) {
           state.unauthorized = true;
@@ -278,36 +278,42 @@
       .then(function () {
         fetching = false;
         render();
-        if (forceHomework) endSync();
-        if (pendingForce) {
-          pendingForce = false;
-          refresh(true);
+        if (force) syncers[force].end();
+        for (var next in pendingForce) {
+          delete pendingForce[next];
+          refresh(next);
+          return;
         }
       });
   }
 
-  // ---------- 手動同步作業 ----------
+  // ---------- 手動同步：點作業數字重抓作業、點「未來一週」重抓天氣 ----------
 
   var SYNC_MIN_MS = 700; // 轉圈至少轉這麼久，太快閃一下反而看不出有沒有同步
-  var syncStartedAt = 0;
-  var hwButton = $("hw");
 
-  function startSync() {
-    if (syncStartedAt) return;
-    syncStartedAt = Date.now();
-    hwButton.classList.add("syncing");
-    refresh(true);
+  function makeSyncer(button, source) {
+    var startedAt = 0;
+    button.addEventListener("click", function () {
+      if (startedAt) return; // 轉圈中再點不重送
+      startedAt = Date.now();
+      button.classList.add("syncing");
+      refresh(source);
+    });
+    return {
+      end: function () {
+        var wait = Math.max(0, SYNC_MIN_MS - (Date.now() - startedAt));
+        setTimeout(function () {
+          button.classList.remove("syncing");
+          startedAt = 0;
+        }, wait);
+      },
+    };
   }
 
-  function endSync() {
-    var wait = Math.max(0, SYNC_MIN_MS - (Date.now() - syncStartedAt));
-    setTimeout(function () {
-      hwButton.classList.remove("syncing");
-      syncStartedAt = 0;
-    }, wait);
-  }
-
-  hwButton.addEventListener("click", startSync);
+  var syncers = {
+    homework: makeSyncer($("hw"), "homework"),
+    weather: makeSyncer($("week-refresh"), "weather"),
+  };
 
   // ---------- 版面：縮放、防烙印、換頁 ----------
 

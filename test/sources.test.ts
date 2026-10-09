@@ -3,6 +3,7 @@ import { generateKeyPairSync, createVerify } from "node:crypto";
 import { test } from "node:test";
 import { authorized } from "../src/auth.ts";
 import { CachedSource } from "../src/cache.ts";
+import { parseRefresh } from "../src/glance.ts";
 import { groupEvents, parseServiceAccount, signJwt } from "../src/calendar.ts";
 import { countHomework } from "../src/homework.ts";
 import { openMeteoUrl, parseForecast } from "../src/weather.ts";
@@ -165,4 +166,11 @@ test("快取：強制重抓會跳過 TTL，但 2 秒內連點只抓一次", asyn
   assert.equal(calls, 3);
   await src.get(t0 + 20_000);
   assert.equal(calls, 3);
+});
+
+test("手動重抓的參數：只認 homework、weather，可用逗號一起", () => {
+  assert.deepEqual(parseRefresh(null), []);
+  assert.deepEqual(parseRefresh("weather"), ["weather"]);
+  assert.deepEqual(parseRefresh("homework,weather"), ["homework", "weather"]);
+  assert.deepEqual(parseRefresh("calendar,../x,weather"), ["weather"]);
 });

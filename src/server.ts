@@ -6,7 +6,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authorized } from "./auth.ts";
 import { loadConfig } from "./config.ts";
-import { createGlance } from "./glance.ts";
+import { createGlance, parseRefresh } from "./glance.ts";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../public/", import.meta.url));
 
@@ -40,9 +40,9 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     if (!authorized(req.headers.authorization, cfg.token)) {
       return send(res, 401, JSON.stringify({ error: "金鑰不對" }), "application/json");
     }
-    // ?refresh=homework：使用者點了作業數字，跳過快取直接問 Due Now
+    // ?refresh=homework／weather：使用者點了作業數字或「未來一週」，跳過快取直接重抓
     const payload = await glance(Date.now(), {
-      refreshHomework: url.searchParams.get("refresh") === "homework",
+      refresh: parseRefresh(url.searchParams.get("refresh")),
     });
     return send(res, 200, JSON.stringify(payload), "application/json; charset=utf-8", {
       "cache-control": "no-store",
