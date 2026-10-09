@@ -18,7 +18,49 @@
 <body>
 <main id="pager">
 
-  <!-- 第一頁（常駐）：設計稿 A2 -->
+  <!-- 左邊一頁：騎車。點「騎車」重抓 Strava，點右上的 FTP 數字改 FTP -->
+  <section class="page">
+    <div class="stage ride-page">
+      <div class="week-head">
+        <button class="week-title" id="ride-refresh" type="button" aria-label="重新同步 Strava">騎車<span class="spinner" aria-hidden="true"></span></button>
+        <div class="week-note"><span class="stale"></span><span class="ride-note" id="ride-note"></span><button class="ftp-btn" id="ftp-btn" type="button" aria-label="修改 FTP">FTP <span class="mono" id="ftp-value">–</span></button></div>
+      </div>
+      <div class="ride-body">
+        <div class="ride-left">
+          <div class="ride-stats">
+            <div class="stat">
+              <div class="stat-label">狀態 TSB</div>
+              <div class="stat-row"><span class="stat-value mono" id="tsb">--</span><span class="pill" id="form-pill" hidden></span></div>
+            </div>
+            <div class="stat">
+              <div class="stat-label"><i class="swatch swatch-ctl"></i>體能 CTL</div>
+              <div class="stat-row"><span class="stat-value mono" id="ctl">--</span><span class="stat-sub mono" id="ramp"></span></div>
+            </div>
+            <div class="stat">
+              <div class="stat-label"><i class="swatch swatch-atl"></i>疲勞 ATL</div>
+              <div class="stat-row"><span class="stat-value mono" id="atl">--</span></div>
+            </div>
+          </div>
+          <div class="ride-chart" id="pmc" role="img" aria-label="最近 90 天的體能、疲勞與狀態"></div>
+        </div>
+        <div class="ride-right">
+          <div class="ride-block-head">
+            <span class="block-title">功率曲線</span>
+            <span class="legend"><i class="swatch swatch-ctl"></i>近 6 週<i class="swatch swatch-year"></i>一年</span>
+          </div>
+          <div class="ride-chart" id="curve" role="img" aria-label="各時間長度的最大平均功率"></div>
+          <div class="ride-block-head">
+            <span class="block-title">心率漂移</span>
+            <span class="legend">1 小時以上，5% 以內＝有氧底子夠</span>
+          </div>
+          <div class="drift" id="drift"></div>
+        </div>
+      </div>
+      <div class="ride-foot">Garmin 裝置記錄 · Powered by Strava</div>
+    </div>
+  </section>
+
+  <!-- 中間（常駐、一打開就在這頁）：設計稿 A2 -->
   <section class="page">
     <div class="stage now-page">
       <div class="main">
@@ -80,7 +122,7 @@
     </div>
   </section>
 
-  <!-- 第二頁：設計稿 W1 -->
+  <!-- 右邊一頁：未來一週，設計稿 W1 -->
   <section class="page">
     <div class="stage week-page">
       <div class="week-head">
@@ -93,48 +135,6 @@
         <div class="day-utci week-utci-head">UTCI</div>
       </div>
       <div class="week-rows" id="week-rows"></div>
-    </div>
-  </section>
-
-  <!-- 第三頁：騎車。點「騎車」重抓 Strava，點右上的 FTP 數字改 FTP -->
-  <section class="page">
-    <div class="stage ride-page">
-      <div class="week-head">
-        <button class="week-title" id="ride-refresh" type="button" aria-label="重新同步 Strava">騎車<span class="spinner" aria-hidden="true"></span></button>
-        <div class="week-note"><span class="stale"></span><span class="ride-note" id="ride-note"></span><button class="ftp-btn" id="ftp-btn" type="button" aria-label="修改 FTP">FTP <span class="mono" id="ftp-value">–</span></button></div>
-      </div>
-      <div class="ride-body">
-        <div class="ride-left">
-          <div class="ride-stats">
-            <div class="stat">
-              <div class="stat-label">狀態 TSB</div>
-              <div class="stat-row"><span class="stat-value mono" id="tsb">--</span><span class="pill" id="form-pill" hidden></span></div>
-            </div>
-            <div class="stat">
-              <div class="stat-label"><i class="swatch swatch-ctl"></i>體能 CTL</div>
-              <div class="stat-row"><span class="stat-value mono" id="ctl">--</span><span class="stat-sub mono" id="ramp"></span></div>
-            </div>
-            <div class="stat">
-              <div class="stat-label"><i class="swatch swatch-atl"></i>疲勞 ATL</div>
-              <div class="stat-row"><span class="stat-value mono" id="atl">--</span></div>
-            </div>
-          </div>
-          <div class="ride-chart" id="pmc" role="img" aria-label="最近 90 天的體能、疲勞與狀態"></div>
-        </div>
-        <div class="ride-right">
-          <div class="ride-block-head">
-            <span class="block-title">功率曲線</span>
-            <span class="legend"><i class="swatch swatch-ctl"></i>近 6 週<i class="swatch swatch-year"></i>一年</span>
-          </div>
-          <div class="ride-chart" id="curve" role="img" aria-label="各時間長度的最大平均功率"></div>
-          <div class="ride-block-head">
-            <span class="block-title">心率漂移</span>
-            <span class="legend">1 小時以上，5% 以內＝有氧底子夠</span>
-          </div>
-          <div class="drift" id="drift"></div>
-        </div>
-      </div>
-      <div class="ride-foot">Garmin 裝置記錄 · Powered by Strava</div>
     </div>
   </section>
 

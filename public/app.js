@@ -9,7 +9,9 @@
   var STALE_AFTER_MS = 2.5 * 60 * 1000; // 超過這麼久沒拿到新資料就標「X 分鐘前更新」
   var WEATHER_STALE_MS = 45 * 60 * 1000; // 伺服器那邊天氣太久沒更新也要標
   var SHIFT_EVERY_MS = 3 * 60 * 1000; // 防烙印：每 3 分鐘整個畫面挪一點
-  var BACK_TO_FIRST_MS = 2 * 60 * 1000; // 停在第二、三頁太久就回常駐頁
+  var BACK_TO_FIRST_MS = 2 * 60 * 1000; // 停在左右兩頁太久就回常駐頁
+  // 頁面由左到右：騎車、常駐、未來一週。一打開停在常駐頁，往右滑看騎車、往左滑看一週
+  var HOME_PAGE = 1;
 
   var TOKEN_KEY = "glance.token";
   var CACHE_KEY = "glance.last";
@@ -830,20 +832,36 @@
   }
 
   var pager = $("pager");
+  var pageCount = pager.children.length;
+  var currentPage = HOME_PAGE;
   var backTimer = null;
+
+  function goPage(n, smooth) {
+    n = Math.max(0, Math.min(pageCount - 1, n));
+    currentPage = n;
+    if (smooth) pager.scrollTo({ left: n * pager.clientWidth, behavior: "smooth" });
+    else pager.scrollLeft = n * pager.clientWidth;
+  }
+
   pager.addEventListener("scroll", function () {
     clearTimeout(backTimer);
-    if (pager.scrollLeft > pager.clientWidth / 2) {
-      backTimer = setTimeout(function () { pager.scrollTo({ left: 0, behavior: "smooth" }); }, BACK_TO_FIRST_MS);
+    currentPage = Math.round(pager.scrollLeft / pager.clientWidth);
+    if (currentPage !== HOME_PAGE) {
+      backTimer = setTimeout(function () { goPage(HOME_PAGE, true); }, BACK_TO_FIRST_MS);
     }
   }, { passive: true });
 
   document.addEventListener("keydown", function (e) {
     if (!ftpForm.hidden || !keyForm.hidden) return;
-    var page = Math.round(pager.scrollLeft / pager.clientWidth);
-    if (e.key === "ArrowRight") pager.scrollTo({ left: (page + 1) * pager.clientWidth, behavior: "smooth" });
-    if (e.key === "ArrowLeft") pager.scrollTo({ left: Math.max(0, page - 1) * pager.clientWidth, behavior: "smooth" });
+    if (e.key === "ArrowRight") goPage(currentPage + 1, true);
+    if (e.key === "ArrowLeft") goPage(currentPage - 1, true);
   });
+
+  /** 縮放、轉向、進出全螢幕會改變頁寬，捲動位置要跟著對回原本那頁 */
+  function onResize() {
+    fit();
+    goPage(currentPage, false);
+  }
 
   // ---------- 全螢幕、螢幕不休眠 ----------
 
@@ -885,12 +903,13 @@
     }
   });
 
-  window.addEventListener("resize", fit);
-  window.addEventListener("orientationchange", fit);
+  window.addEventListener("resize", onResize);
+  window.addEventListener("orientationchange", onResize);
 
   // ---------- 開始 ----------
 
   fit();
+  goPage(HOME_PAGE, false);
   render();
   refresh();
   requestWakeLock();
