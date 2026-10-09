@@ -292,10 +292,10 @@
     var x = function (i) { return left + (i * (right - left)) / (pmc.length - 1); };
 
     // 上面畫 CTL、ATL（從 0 起），下面一條畫 TSB。TSB 會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，
-    // 所以分開畫；中間和最下面各留一行寫日期
-    var split = Math.round((c.H - 16) * 0.53);
+    // 所以分開畫；日期只寫在兩張圖中間那一行，下面那張對著同一條直線看
+    var split = Math.round(c.H * 0.53);
     var top2 = split + 20;
-    var bottom2 = c.H - 16;
+    var bottom2 = c.H - 2;
     var y2 = function (v) { return top2 + ((tsbMax - v) / (tsbMax - tsbMin)) * (bottom2 - top2); };
 
     // 先畫底下的東西（格線、五區底色、日期直線），線最後畫才不會被蓋住
@@ -316,7 +316,7 @@
       if (v > tsbMin && v < tsbMax) axText(c.root, left - 6, y2(v) + 3, v < 0 ? "−" + -v : String(v), "end", "ax");
     });
     svg("line", { x1: left, x2: right, y1: y2(0), y2: y2(0), "class": "zero" }, c.root);
-    // 日期：每月 1 號、15 號一條直線貫穿上下兩張圖，兩張圖下面各寫一次。
+    // 日期：每月 1 號、15 號一條直線貫穿上下兩張圖，字寫在兩張圖中間。
     // 太靠近右端「今天」的只畫線不寫字，免得疊在一起
     t.pmcTicks.forEach(function (tk) {
       var tx = x(tk.index);
@@ -324,10 +324,8 @@
       svg("line", { x1: tx, x2: tx, y1: top2, y2: bottom2, "class": "vgrid" }, c.root);
       if (right - tx < TODAY_CLEAR_PX || tx - left < 10) return;
       axText(c.root, tx, split + 13, tk.label, "middle", "ax");
-      axText(c.root, tx, c.H - 2, tk.label, "middle", "ax");
     });
     axText(c.root, right, split + 13, "今天", "end", "ax");
-    axText(c.root, right, c.H - 2, "今天", "end", "ax");
 
     var atl = [];
     var ctl = [];
