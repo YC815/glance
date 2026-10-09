@@ -7,6 +7,7 @@ import type { Config } from "./config.ts";
 import { fetchHomework, type Homework } from "./homework.ts";
 import { buildWeatherView, type WeatherView } from "./view.ts";
 import { fetchForecast, type Forecast } from "./weather.ts";
+import { weatherLogLine } from "./weather-log.ts";
 
 const MINUTE = 60_000;
 
@@ -24,7 +25,11 @@ export type GlancePayload = {
 export type ClientEvent = { time: string; title: string; end: number };
 
 export function createGlance(cfg: Config) {
-  const weather = new CachedSource<Forecast>(15 * MINUTE, () => fetchForecast(cfg.weather));
+  const weather = new CachedSource<Forecast>(15 * MINUTE, async () => {
+    const forecast = await fetchForecast(cfg.weather);
+    console.log(`[glance] ${weatherLogLine(buildWeatherView(forecast.hours, forecast.fetchedAt), forecast.fetchedAt)}`);
+    return forecast;
+  });
   const homework = cfg.homework
     ? // 平常 5 分鐘；在 Due Now 勾完成後可以點看板上的數字強制重抓（refreshHomework）
       new CachedSource<Homework>(5 * MINUTE, () => fetchHomework(cfg.homework!))

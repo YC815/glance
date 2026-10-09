@@ -39,6 +39,8 @@ export type WeekRow = {
   name: string;
   date: string;
   cells: RainLevel[];
+  /** 05–20 點裡雨最大的一小時 [mm]；整天都沒資料是 null */
+  rainMax: number | null;
   utci: Utci | null;
   dim: boolean;
 };
@@ -107,9 +109,12 @@ export function buildWeek(byT: Map<number, HourPoint>, now: number): WeekRow[] {
     const day = today + (i + 1) * DAY_MS;
     const cells: RainLevel[] = [];
     let max: number | null = null;
+    let rainMax: number | null = null;
     for (let h = WEEK_FIRST_HOUR; h <= WEEK_LAST_HOUR; h++) {
       const t = day + h * HOUR_MS;
-      cells.push(rainLevel(rainOfHour(byT, t)));
+      const mm = rainOfHour(byT, t);
+      cells.push(rainLevel(mm));
+      if (mm !== null && (rainMax === null || mm > rainMax)) rainMax = mm;
       const u = byT.get(t)?.utci ?? null;
       if (u !== null && (max === null || u > max)) max = u;
     }
@@ -117,6 +122,7 @@ export function buildWeek(byT: Map<number, HourPoint>, now: number): WeekRow[] {
       name: weekdayName(day),
       date: monthDay(day),
       cells,
+      rainMax,
       utci: max === null ? null : toUtci(max),
       // 第 4 天以後（明天算第 1 天）預報不準，畫淡一點
       dim: i >= 3,

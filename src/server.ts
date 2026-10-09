@@ -65,14 +65,6 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-/** 「雨量有值 24/24 小時，合計 3.2 mm，最大 1.5 mm」：日誌裡分得出是不下雨還是沒資料 */
-function rainStats(bars: { mm: number | null }[]): string {
-  const values = bars.map((b) => b.mm).filter((v): v is number => v !== null);
-  const sum = values.reduce((a, b) => a + b, 0);
-  const max = values.length ? Math.max(...values) : 0;
-  return `雨量有值 ${values.length}/${bars.length} 小時，合計 ${sum.toFixed(1)} mm，最大 ${max.toFixed(1)} mm`;
-}
-
 createServer((req, res) => {
   handle(req, res).catch((err) => {
     console.error("[glance]", err);
@@ -85,7 +77,7 @@ createServer((req, res) => {
   glance().then((p) => {
     const w = p.weather;
     console.log(
-      `[glance] 預熱：天氣 ${w ? `ok（${w.headline}，UTCI ${w.utci?.value ?? "-"}，${rainStats(w.rain24)}）` : `失敗：${p.sources.weather.error}`}；` +
+      `[glance] 預熱：天氣 ${w ? "ok" : `失敗：${p.sources.weather.error}`}；` +
         `作業 ${p.homework ? `ok（今天 ${p.homework.today}，三天內 ${p.homework.within3Days}）` : (p.sources.homework.error ?? "未設定")}；` +
         `行事曆 ${p.calendar ? `ok（今天 ${p.calendar.today.length}，明天 ${p.calendar.tomorrow.length}）` : (p.sources.calendar.error ?? "未設定")}`,
     );

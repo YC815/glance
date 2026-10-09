@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { DAY_MS, HOUR_MS } from "../src/time.ts";
 import { buildWeatherView, hourPhrase, rainLevel, rainText, type Bar } from "../src/view.ts";
 import type { HourPoint } from "../src/weather.ts";
+import { weatherLogLine } from "../src/weather-log.ts";
 
 /** 台北時間字串 → epoch ms */
 const tp = (s: string) => Date.parse(`${s}+08:00`);
@@ -142,4 +143,30 @@ test("預報缺資料時不爆，也不會說成「不會下雨」", () => {
   assert.equal(v.utci, null);
   assert.equal(v.headline, "沒有雨量資料");
   assert.equal(v.week[0].utci, null);
+});
+
+test("天氣日誌一行：24 小時統計與一週每天的最大雨量／UTCI", () => {
+  const today = tp("2026-10-08T00:00:00");
+  const now = tp("2026-10-08T23:05:00");
+  const hours = forecast(
+    today,
+    // 明天 08 點那格（09:00 整點）3.2 mm；明天 22 點那格不在 05–20，不算
+    (t) => (t === tp("2026-10-09T09:00:00") ? 3.2 : t === tp("2026-10-09T23:00:00") ? 9 : 0),
+    () => 25,
+  );
+  const v = buildWeatherView(hours, now);
+  assert.equal(v.week[0].rainMax, 3.2);
+  assert.equal(v.week[1].rainMax, 0);
+  const line = weatherLogLine(v, now);
+  assert.match(line, /^天氣更新 23:05｜現在沒下雨｜/);
+  assert.match(line, /24h 雨量有值 24\/24，合計 12\.2 mm，最大 9\.0 mm/);
+  assert.match(line, /週五 3\.2\/25 週六 0\.0\/25/);
+});
+
+test("天氣日誌：沒資料的地方寫 -", () => {
+  const v = buildWeatherView([], tp("2026-10-08T21:00:00"));
+  const line = weatherLogLine(v, tp("2026-10-08T21:00:00"));
+  assert.match(line, /沒有雨量資料/);
+  assert.match(line, /有值 0\/24/);
+  assert.match(line, /週五 -\/-/);
 });
