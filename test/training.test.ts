@@ -80,14 +80,16 @@ test("FTP：用當時生效的；比第一筆還早就用第一筆", () => {
   assert.equal(ftpAt(h, tp("2026-10-01T07:00:00")), 230);
 });
 
-test("狀態分級的邊界", () => {
-  assert.deepEqual([5, 4.9, -10, -10.1, -30, -30.1].map((t) => formLevel(t).label), [
-    "精神好",
-    "正常",
-    "正常",
-    "在累積",
-    "在累積",
-    "太累了",
+test("狀態五區的邊界", () => {
+  assert.deepEqual([25.1, 25, 5, 4.9, -10, -10.1, -30, -30.1].map((t) => formLevel(t).label), [
+    "過渡期",
+    "精力充沛",
+    "精力充沛",
+    "灰色地帶",
+    "灰色地帶",
+    "最優",
+    "最優",
+    "高風險",
   ]);
 });
 
@@ -107,7 +109,7 @@ test("PMC：每天 100 TSS 騎 42 天，CTL 約 64；TSB 用昨天結束時的�
   assert.equal(v.ctl, Math.round(ctl * 10) / 10);
   assert.equal(v.atl, Math.round(atl * 10) / 10);
   assert.equal(v.tsb, Math.round((ctl - atl) * 10) / 10);
-  assert.equal(v.form?.label, "太累了", "連騎 42 天每天 100，ATL 遠高於 CTL");
+  assert.equal(v.form?.label, "高風險", "連騎 42 天每天 100，ATL 遠高於 CTL");
   assert.equal(v.pmc.length, 90);
   // 今天還沒騎：今天結束時的值會往下掉
   assert.ok(v.pmc[89].ctl < v.ctl!);

@@ -226,13 +226,11 @@
 
   // ---------- 騎車頁 ----------
 
-  var SVG_NS = "http://www.w3.org/2000/svg";
+  // svg()、svgText() 跟下面 UTCI 折線圖共用
 
-  function svg(tag, attrs, text) {
-    var e = document.createElementNS(SVG_NS, tag);
-    for (var k in attrs) e.setAttribute(k, attrs[k]);
-    if (text !== undefined) e.textContent = text;
-    return e;
+  /** SVG 字：class 用騎車頁自己的 */
+  function axText(parent, x, y, text, anchor, className) {
+    return svgText(parent, x, y, text, anchor || "start", className || "ax");
   }
 
   /** 格線間距：1、2、5 × 10 的次方裡，第一個不小於 x 的 */
@@ -247,9 +245,9 @@
   function yAxis(root, low, top, step, left, right, plotTop, plotBottom, noLowLabel) {
     var y = function (v) { return plotTop + (plotBottom - plotTop) * (1 - (v - low) / (top - low)); };
     for (var v = low; v <= top + 1e-9; v += step) {
-      root.appendChild(svg("line", { x1: left, x2: right, y1: y(v), y2: y(v), "class": "grid" }));
+      svg("line", { x1: left, x2: right, y1: y(v), y2: y(v), "class": "grid" }, root);
       if (noLowLabel && v === low) continue;
-      root.appendChild(svg("text", { x: left - 6, y: y(v) + 3, "text-anchor": "end", "class": "ax" }, String(v)));
+      axText(root, left - 6, y(v) + 3, String(v), "end", "ax");
     }
     return y;
   }
@@ -270,8 +268,7 @@
     var W = box.clientWidth;
     var H = box.clientHeight;
     if (!W || !H) return null;
-    var root = svg("svg", { viewBox: "0 0 " + W + " " + H, "aria-hidden": "true" });
-    box.appendChild(root);
+    var root = svg("svg", { viewBox: "0 0 " + W + " " + H, "aria-hidden": "true" }, box);
     return { root: root, W: W, H: H };
   }
 
@@ -281,46 +278,63 @@
     if (!c) return;
     var pmc = t.pmc;
     var max = 10;
-    var tsbMin = -35;
-    var tsbMax = 25;
+    // 至少畫到 −45～+40，五區才都看得到
+    var tsbMin = -45;
+    var tsbMax = 40;
     pmc.forEach(function (p) {
       max = Math.max(max, p.ctl, p.atl);
       tsbMin = Math.min(tsbMin, p.tsb);
       tsbMax = Math.max(tsbMax, p.tsb);
     });
     var left = 26;
-    var x = function (i) { return left + (i * (c.W - left)) / (pmc.length - 1); };
+    // 右邊留一欄寫 TSB 的區名，上下兩張圖共用同一條時間軸
+    var right = c.W - 50;
+    var x = function (i) { return left + (i * (right - left)) / (pmc.length - 1); };
 
     // 上面：CTL、ATL（從 0 起）
-    var split = Math.round((c.H - 16) * 0.66);
+    var split = Math.round((c.H - 16) * 0.55);
     var step = niceStep(max / 3);
     // 0 不寫：下面 TSB 那條有自己的 0，兩個 0 疊在一起容易看錯
-    var y = yAxis(c.root, 0, Math.ceil(max / step) * step, step, left, c.W, 4, split, true);
+    var y = yAxis(c.root, 0, Math.ceil(max / step) * step, step, left, right, 4, split, true);
     var atl = [];
     var ctl = [];
     pmc.forEach(function (p, i) {
       atl.push([x(i), y(p.atl)]);
       ctl.push([x(i), y(p.ctl)]);
     });
-    c.root.appendChild(svg("path", { d: pathOf(atl), "class": "l-atl" }));
-    c.root.appendChild(svg("path", { d: pathOf(ctl), "class": "l-ctl" }));
+    svg("path", { d: pathOf(atl), "class": "l-atl" }, c.root);
+    svg("path", { d: pathOf(ctl), "class": "l-ctl" }, c.root);
 
-    // 下面一條：TSB，共用時間軸。會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，所以分開畫
+    // 下面一條：TSB，共用時間軸。會在 0 上下跑，跟上面擠一起會把 CTL、ATL 壓扁，所以分開畫。
+    // 底色分五區，每區寫上名字（紅綠相鄰，不能只靠顏色）
     var top2 = split + 14;
     var bottom2 = c.H - 16;
     var y2 = function (v) { return top2 + ((tsbMax - v) / (tsbMax - tsbMin)) * (bottom2 - top2); };
-    var zoneTop = y2(Math.min(-10, tsbMax));
-    var zoneBottom = y2(Math.max(-30, tsbMin));
-    c.root.appendChild(svg("rect", { x: left, y: zoneTop, width: c.W - left, height: Math.max(0, zoneBottom - zoneTop), "class": "tsb-zone" }));
-    c.root.appendChild(svg("line", { x1: left, x2: c.W, y1: y2(0), y2: y2(0), "class": "grid" }));
-    c.root.appendChild(svg("text", { x: left - 6, y: y2(0) + 3, "text-anchor": "end", "class": "ax" }, "0"));
-    c.root.appendChild(svg("text", { x: left - 6, y: top2 + 6, "text-anchor": "end", "class": "ax" }, "TSB"));
+    FORM_ZONES.forEach(function (z, level) {
+      var zTop = y2(Math.min(z[0], tsbMax));
+      var zBottom = y2(Math.max(z[1], tsbMin));
+      if (zBottom <= zTop) return;
+      svg("rect", { x: left, y: zTop, width: right - left, height: zBottom - zTop, "class": "zone f" + level }, c.root);
+      if (zBottom - zTop >= 10) axText(c.root, right + 6, (zTop + zBottom) / 2 + 3, z[2], "start", "zone-label");
+    });
+    svg("line", { x1: left, x2: right, y1: y2(0), y2: y2(0), "class": "zero" }, c.root);
+    axText(c.root, left - 6, y2(0) + 3, "0", "end", "ax");
+    axText(c.root, left - 6, top2 + 6, "TSB", "end", "ax");
     var tsb = [];
     pmc.forEach(function (p, i) { tsb.push([x(i), y2(p.tsb)]); });
-    c.root.appendChild(svg("path", { d: pathOf(tsb), "class": "l-tsb" }));
-    c.root.appendChild(svg("text", { x: left, y: c.H - 2, "class": "ax" }, t.pmcStart));
-    c.root.appendChild(svg("text", { x: c.W, y: c.H - 2, "text-anchor": "end", "class": "ax" }, "今天"));
+    svg("path", { d: pathOf(tsb), "class": "l-tsb" }, c.root);
+    axText(c.root, left, c.H - 2, t.pmcStart, "start", "ax");
+    axText(c.root, right, c.H - 2, "今天", "end", "ax");
   }
+
+  /** TSB 五區 [上限, 下限, 名稱]，跟 src/training.ts 的 formLevel 同一組門檻；索引就是 level */
+  var FORM_ZONES = [
+    [Infinity, 25, "過渡期"],
+    [25, 5, "精力充沛"],
+    [5, -10, "灰色地帶"],
+    [-10, -30, "最優"],
+    [-30, -Infinity, "高風險"],
+  ];
 
   var CURVE_TICKS = { 5: "5秒", 60: "1分", 300: "5分", 1200: "20分", 3600: "1小時" };
 
@@ -347,18 +361,18 @@
     function line(values, cls) {
       var pts = [];
       values.forEach(function (w, i) { if (w !== null) pts.push([x(i), y(w)]); });
-      if (pts.length) c.root.appendChild(svg("path", { d: pathOf(pts), "class": cls }));
+      if (pts.length) svg("path", { d: pathOf(pts), "class": cls }, c.root);
       return pts;
     }
     line(t.curve.year, "l-year");
     line(t.curve.recent, "l-ctl").forEach(function (p) {
-      c.root.appendChild(svg("circle", { cx: p[0], cy: p[1], r: 3, "class": "dot-ctl" }));
+      svg("circle", { cx: p[0], cy: p[1], r: 3, "class": "dot-ctl" }, c.root);
     });
     d.forEach(function (sec, i) {
       if (!CURVE_TICKS[sec]) return;
       var w = t.curve.recent[i];
-      c.root.appendChild(svg("text", { x: x(i), y: c.H - 18, "text-anchor": "middle", "class": "ax" }, CURVE_TICKS[sec]));
-      c.root.appendChild(svg("text", { x: x(i), y: c.H - 3, "text-anchor": "middle", "class": "ax-val" }, w === null ? "–" : String(w)));
+      axText(c.root, x(i), c.H - 18, CURVE_TICKS[sec], "middle", "ax");
+      axText(c.root, x(i), c.H - 3, w === null ? "–" : String(w), "middle", "ax-val");
     });
   }
 

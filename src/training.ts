@@ -161,7 +161,7 @@ export function ftpAt(history: FtpEntry[], t: number): number | null {
 
 // ---------- 給前端的整理 ----------
 
-export type FormLevel = 0 | 1 | 2 | 3;
+export type FormLevel = 0 | 1 | 2 | 3 | 4;
 
 export type TrainingView = {
   ftp: number | null;
@@ -185,14 +185,16 @@ export type TrainingView = {
 };
 
 /**
- * TSB（狀態）分級。門檻是 TrainingPeaks 常見的說法：
- * +5 以上養足精神、-10～+5 正常、-30～-10 在累積訓練、-30 以下累過頭。
+ * TSB（狀態）五區，名稱和門檻照 intervals.icu 的 Form 圖：
+ * +25 以上過渡期（休太久，體能在掉）、+5～+25 精力充沛、−10～+5 灰色地帶、
+ * −30～−10 最優（有效訓練）、−30 以下高風險。前端 public/app.js 的 FORM_ZONES 要跟這裡一致。
  */
 export function formLevel(tsb: number): { level: FormLevel; label: string } {
-  if (tsb >= 5) return { level: 0, label: "精神好" };
-  if (tsb >= -10) return { level: 1, label: "正常" };
-  if (tsb >= -30) return { level: 2, label: "在累積" };
-  return { level: 3, label: "太累了" };
+  if (tsb > 25) return { level: 0, label: "過渡期" };
+  if (tsb >= 5) return { level: 1, label: "精力充沛" };
+  if (tsb >= -10) return { level: 2, label: "灰色地帶" };
+  if (tsb >= -30) return { level: 3, label: "最優" };
+  return { level: 4, label: "高風險" };
 }
 
 export function buildTrainingView(rides: Ride[], ftpHistory: FtpEntry[], now: number): TrainingView {

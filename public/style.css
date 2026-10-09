@@ -25,6 +25,13 @@
   --atl: #cf7430;
   --grid: #1d262c;
 
+  /* TSB 五區（灰色地帶是中性的中點；紅綠靠明暗拉開，深色底驗過色盲可分） */
+  --form0: #b08c20;
+  --form1: #3a86d6;
+  --form2: #8a979e;
+  --form3: #40a878;
+  --form4: #c4344a;
+
   /* 由 app.js 設定：畫布縮放與防烙印位移 */
   --scale: 1;
   --shift-x: 0px;
@@ -469,10 +476,11 @@ html, body {
 .stat-row { display: flex; align-items: center; gap: 8px; }
 .stat-value { font-size: 34px; font-weight: 600; line-height: 1; }
 .stat-sub { font-size: 13px; color: var(--fg2); }
-.pill.f0 { background: var(--rain1); }
-.pill.f1 { background: var(--utci0); }
-.pill.f2 { background: var(--utci1); }
-.pill.f3 { background: var(--hw-today); }
+.pill.f0 { background: var(--form0); }
+.pill.f1 { background: var(--form1); }
+.pill.f2 { background: var(--form2); }
+.pill.f3 { background: var(--form3); }
+.pill.f4 { background: var(--form4); }
 
 .swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; font-style: normal; }
 .swatch-ctl { background: var(--ctl); }
@@ -509,17 +517,23 @@ html, body {
 
 .ride-foot { font-size: 10px; color: var(--fg2); text-align: right; }
 
-/* SVG 的線與字 */
-.grid { stroke: var(--grid); stroke-width: 1; }
-.l-ctl { fill: none; stroke: var(--ctl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.l-atl { fill: none; stroke: var(--atl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.l-year { fill: none; stroke: var(--fg2); stroke-width: 1.5; stroke-dasharray: 3 2; }
-.l-tsb { fill: none; stroke: var(--fg3); stroke-width: 1.5; stroke-linejoin: round; }
-/* TSB −10～−30：在累積訓練的區間 */
-.tsb-zone { fill: var(--utci1); opacity: 0.12; }
-.dot-ctl { fill: var(--ctl); stroke: var(--bg); stroke-width: 2; }
-.ax { font: 500 10px "IBM Plex Mono", monospace; fill: var(--fg2); }
-.ax-val { font: 600 12px "IBM Plex Mono", monospace; fill: var(--fg); }
+/* SVG 的線與字（限定在騎車頁，不影響 UTCI 折線圖） */
+.ride-chart .grid { stroke: var(--grid); stroke-width: 1; }
+.ride-chart .zero { stroke: var(--fg2); stroke-width: 1; opacity: 0.5; }
+.ride-chart .l-ctl { fill: none; stroke: var(--ctl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ride-chart .l-atl { fill: none; stroke: var(--atl); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ride-chart .l-year { fill: none; stroke: var(--fg2); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.ride-chart .l-tsb { fill: none; stroke: var(--fg); stroke-width: 1.5; stroke-linejoin: round; }
+.ride-chart .zone { opacity: 0.22; }
+.ride-chart .zone.f0 { fill: var(--form0); }
+.ride-chart .zone.f1 { fill: var(--form1); }
+.ride-chart .zone.f2 { fill: var(--form2); opacity: 0.12; }
+.ride-chart .zone.f3 { fill: var(--form3); }
+.ride-chart .zone.f4 { fill: var(--form4); }
+.ride-chart .zone-label { font: 500 10px "Noto Sans TC", sans-serif; fill: var(--fg3); }
+.ride-chart .dot-ctl { fill: var(--ctl); stroke: var(--bg); stroke-width: 2; }
+.ride-chart .ax { font: 500 10px "IBM Plex Mono", monospace; fill: var(--fg2); }
+.ride-chart .ax-val { font: 600 12px "IBM Plex Mono", monospace; fill: var(--fg); }
 
 /* 輸入金鑰：不跟著畫布縮放，字要夠大（iPhone 輸入框小於 16px 會自動放大畫面） */
 .key-form {

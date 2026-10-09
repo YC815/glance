@@ -66,7 +66,7 @@ test/          node:test
 - **串流攤成每秒**：取樣間隔 ≤ 10 秒沿用前一個值（智慧記錄），更長的當成停下來。NP、TSS、心率漂移把停下來的段落拿掉；功率曲線補 0（不能跨過休息算平均）。
 - **TSS** = 秒數 × NP² ÷ (FTP² × 36)。**FTP 手填**（點騎車頁右上角的「FTP」），從填的那天起生效，之前的騎乘照舊用當時的；比第一筆還早的騎乘用第一筆。每趟只存 NP 和秒數，改 FTP 不用重抓串流。
 - **CTL／ATL**：從一年前的 0 開始，每天 `CTL += (TSS − CTL) / 42`、`ATL += (TSS − ATL) / 7`，日界用台北時間。
-- **TSB（狀態）**：今天出門前的狀態＝昨天結束時的 CTL − ATL，今天騎的不算。分級：+5 以上「精神好」、−10～+5「正常」、−30～−10「在累積」、−30 以下「太累了」。PMC 圖下面那條就是每天的 TSB，淡橘色那段是 −10～−30。
+- **TSB（狀態）**：今天出門前的狀態＝昨天結束時的 CTL − ATL，今天騎的不算。分五區（名稱和門檻照 intervals.icu）：+25 以上「過渡期」（休太久，體能在掉）、+5～+25「精力充沛」、−10～+5「灰色地帶」、−30～−10「最優」（有效訓練）、−30 以下「高風險」。PMC 圖下面那條就是每天的 TSB，底色就是這五區，區名寫在右邊。
 - **CTL 每週變化**：今天結束時的 CTL 減 7 天前。
 - **功率曲線**：5 秒到 2 小時各秒數的最大平均功率，近 6 週（跟 CTL 同樣 42 天）對一年。
 - **心率漂移**：一小時以上、心率有九成以上時間有讀數的騎乘，前後半段各算平均功率 ÷ 平均心率，後半段掉了幾 %。5% 以內代表有氧底子夠。爬坡、間歇課的數字會比較亂，參考就好。
@@ -129,11 +129,11 @@ npm run typecheck
 ### 設定 Strava（一次）
 
 1. Strava 設定 → [My API Application](https://www.strava.com/settings/api) 建一個 App。Authorization Callback Domain 填 `localhost`。
-2. 在自己電腦上跑：
+2. 在自己電腦的專案資料夾裡跑（Mac、Windows 都一樣；Node 要 22.18 以上）：
    ```bash
-   STRAVA_CLIENT_ID=… STRAVA_CLIENT_SECRET=… node scripts/strava-auth.ts
+   node scripts/strava-auth.ts <Client ID> <Client Secret>
    ```
-   打開它印出的網址按授權（「查看所有活動資料」要勾）。瀏覽器會跳到打不開的 `http://localhost/?…code=…`，把整串網址貼回終端機。
+   兩個值換成 My API Application 頁面上的，不用加引號。打開它印出的網址按授權（「查看所有活動資料」要勾）。瀏覽器會跳到打不開的 `http://localhost/?…code=…`，把整串網址貼回終端機。
 3. 把印出來的 refresh token 和 client ID／secret 貼進伺服器的 `STRAVA_REFRESH_TOKEN`、`STRAVA_CLIENT_ID`、`STRAVA_CLIENT_SECRET`。
 4. Railway：glance 服務掛一個 volume，`DATA_DIR` 設成它的掛載路徑。
 5. 打開看板滑到第三頁，點右上角「FTP 未填」填 FTP。剛接上時右上角會寫「補資料中，還有 N 趟」，大概半小時到一小時補完。

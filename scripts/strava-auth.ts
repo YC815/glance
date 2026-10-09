@@ -1,16 +1,17 @@
 // 第一次接 Strava：授權自己的 Strava API App，拿到 refresh token 貼進 STRAVA_REFRESH_TOKEN。
 //
-//   STRAVA_CLIENT_ID=… STRAVA_CLIENT_SECRET=… node scripts/strava-auth.ts
+//   node scripts/strava-auth.ts <Client ID> <Client Secret>
 //
+// （也可以用環境變數 STRAVA_CLIENT_ID／STRAVA_CLIENT_SECRET，參數優先）
 // Strava App 的 Authorization Callback Domain 要填 localhost。授權完瀏覽器會跳到
 // http://localhost/?…&code=… 打不開沒關係，把網址列整串貼回來就好。
 
 import { createInterface } from "node:readline/promises";
 
-const clientId = process.env.STRAVA_CLIENT_ID;
-const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+const clientId = process.argv[2] || process.env.STRAVA_CLIENT_ID;
+const clientSecret = process.argv[3] || process.env.STRAVA_CLIENT_SECRET;
 if (!clientId || !clientSecret) {
-  console.error("先設定 STRAVA_CLIENT_ID 與 STRAVA_CLIENT_SECRET（Strava 設定 → My API Application）");
+  console.error("用法：node scripts/strava-auth.ts <Client ID> <Client Secret>（Strava 設定 → My API Application 上有）");
   process.exit(1);
 }
 
