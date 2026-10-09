@@ -120,7 +120,17 @@ html, body {
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+  /* 點了跳出今天每小時的折線圖 */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.pill[hidden] { display: none; }
 .utci-label { font-size: 14px; color: var(--fg2); }
 .utci-value { font-size: 46px; font-weight: 600; line-height: 1; }
 .pill {
@@ -262,6 +272,82 @@ html, body {
   text-overflow: ellipsis;
 }
 .events-empty, .events-more { font-size: 13px; color: var(--fg2); }
+
+/* ---------- 今天每小時 UTCI（彈出視窗，跟著畫布縮放） ---------- */
+
+.sheet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 19, 22, 0.72);
+  /* 開著時在上面拖不會滑到第二頁 */
+  touch-action: none;
+}
+.sheet[hidden] { display: none; }
+.sheet-panel {
+  width: 660px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 12px;
+  background: #151c20;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.sheet-head { display: flex; align-items: flex-start; gap: 16px; }
+.sheet-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+.sheet-title { font-size: 18px; font-weight: 900; }
+.sheet-sub { font-size: 13px; color: var(--fg2); margin-top: 2px; }
+.sheet-readout {
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: 14px;
+  color: var(--fg3);
+  white-space: nowrap;
+}
+.sheet-readout b { font-family: "IBM Plex Mono", monospace; font-size: 18px; color: var(--fg); margin: 0 6px; }
+.sheet-close {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin: -4px -6px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--fg2);
+  font: 400 26px/1 "Noto Sans TC", sans-serif;
+  cursor: pointer;
+}
+.utci-chart { display: block; width: 620px; height: 230px; }
+.utci-chart text { font-family: "IBM Plex Mono", monospace; font-size: 11px; fill: var(--fg2); }
+.utci-chart .grid { stroke: var(--line); stroke-width: 1; }
+.utci-chart .band1 { fill: var(--utci1); opacity: 0.1; }
+.utci-chart .band2 { fill: var(--utci2); opacity: 0.12; }
+.utci-chart .band3 { fill: var(--utci3); opacity: 0.16; }
+.utci-chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.utci-chart .line-past { stroke: var(--fg2); opacity: 0.6; }
+.utci-chart .line-future { stroke: var(--fg); }
+.utci-chart .now-line { stroke: var(--fg2); stroke-width: 1; stroke-dasharray: 3 3; }
+.utci-chart .cross { stroke: var(--fg3); stroke-width: 1; }
+.utci-chart .dot { stroke: #151c20; stroke-width: 2; fill: var(--utci0); }
+.utci-chart .dot.u1 { fill: var(--utci1); }
+.utci-chart .dot.u2 { fill: var(--utci2); }
+.utci-chart .dot.u3 { fill: var(--utci3); }
+.utci-chart text.mark { fill: var(--fg3); font-weight: 600; }
+.utci-chart text.empty { font-family: "Noto Sans TC", sans-serif; font-size: 14px; }
+.sheet-legend { display: flex; gap: 18px; font-size: 12px; color: var(--fg2); }
+.sheet-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.swatch.u1 { background: var(--utci1); }
+.swatch.u2 { background: var(--utci2); }
+.swatch.u3 { background: var(--utci3); }
 
 /* ---------- 第二頁 ---------- */
 

@@ -35,6 +35,15 @@ export type Bar = { t: number; mm: number | null; level: RainLevel; label: strin
 
 export type Utci = { value: number; level: 0 | 1 | 2 | 3; label: string };
 
+/** 今天某個整點的 UTCI（彈出視窗的折線圖用）。 */
+export type UtciHour = {
+  /** 整點時間 epoch ms */
+  t: number;
+  /** 取到小數一位；沒資料是 null */
+  value: number | null;
+  level: Utci["level"] | null;
+};
+
 export type WeekRow = {
   name: string;
   date: string;
@@ -49,6 +58,8 @@ export type WeatherView = {
   headline: string;
   summary: string;
   utci: Utci | null;
+  /** 今天 00–23 點每小時的 UTCI，共 24 個 */
+  utciToday: UtciHour[];
   rain24: Bar[];
   week: WeekRow[];
 };
@@ -61,6 +72,7 @@ export function buildWeatherView(hours: HourPoint[], now: number): WeatherView {
     headline,
     summary,
     utci: currentUtci(byT, now),
+    utciToday: buildUtciToday(byT, now),
     rain24,
     week: buildWeek(byT, now),
   };
@@ -98,6 +110,18 @@ export function currentUtci(byT: Map<number, HourPoint>, now: number): Utci | nu
   if (a === null && b === null) return null;
   if (a === null || b === null) return toUtci((a ?? b) as number);
   return toUtci(a + ((b - a) * (now - t0)) / HOUR_MS);
+}
+
+/** 今天（台北）00:00–23:00 每個整點的 UTCI。 */
+export function buildUtciToday(byT: Map<number, HourPoint>, now: number): UtciHour[] {
+  const today = startOfTaipeiDay(now);
+  return Array.from({ length: 24 }, (_, h) => {
+    const t = today + h * HOUR_MS;
+    const u = byT.get(t)?.utci ?? null;
+    if (u === null) return { t, value: null, level: null };
+    const value = Math.round(u * 10) / 10;
+    return { t, value, level: heatStress(Math.round(value)).level };
+  });
 }
 
 export const WEEK_FIRST_HOUR = 5;
