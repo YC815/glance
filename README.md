@@ -77,7 +77,7 @@ npm run typecheck
 
 1. Google 日曆 → 右上齒輪「設定」→ 左邊點要顯示的行事曆 →「整合日曆」。
 2. 複製「iCal 格式的私人網址」（`https://calendar.google.com/calendar/ical/…/private-…/basic.ics`）。
-3. 貼進伺服器的 `CALENDAR_ICS_URLS`（Railway：glance 服務 → Variables）。不要放進前端、不要 commit、不要貼到聊天或 issue。
+3. 貼進伺服器的 `CALENDAR_ICS_URLS`（自架機器上的 `.env`）。不要放進前端、不要 commit、不要貼到聊天或 issue。
 4. 外洩了就回到同一頁按「重設」，舊網址立刻失效，再把新網址換進去。
 
 為什麼不用 Calendar API：學校 Workspace 帳號多半不准分享給外部的服務帳戶；OAuth 用戶端在「測試中」狀態 refresh token 7 天就失效。
@@ -87,8 +87,20 @@ npm run typecheck
 
 ## 部署
 
-任何能跑 Node 22.18+ 的地方都行（例如 Railway：開一個服務接這個 repo，啟動指令 `npm start`，設好環境變數）。
-要 HTTPS，否則 Screen Wake Lock 與 service worker 不會動。
+跑在自己的 homelab 上，用 Docker（任何能跑 Node 22.18+ 的地方其實也行，`npm start` 就好）。
+
+```bash
+git clone https://github.com/YC815/glance.git && cd glance
+cp .env.example .env   # 填 GLANCE_TOKEN、DUE_NOW_TOKEN、CALENDAR_ICS_URLS
+docker compose up -d --build
+curl localhost:3000/healthz   # ok
+```
+
+更新：`git pull && docker compose up -d --build`。
+
+- 容器不寫任何檔案，不用掛 volume；快取都在記憶體，重開會自己重抓。
+- 要 HTTPS，否則 Screen Wake Lock 與 service worker 不會動：前面接反向代理（Caddy、Nginx Proxy Manager）或 Cloudflare Tunnel，把網域導到這台的 3000 port。
+- `.env` 裡的金鑰與 iCal 網址等於密碼，只放在這台機器上。
 
 ## 手機設定
 
